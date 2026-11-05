@@ -95,6 +95,44 @@ I applied the migration by pasting it into the Supabase SQL Editor.
 
 ---
 
+## Phase 3 — Instructor authentication
+
+**Prompt:** "Continue to next phase."
+
+**Agent output:**
+
+- The auth state is split into three files: `src/auth/context.ts`, `AuthProvider.tsx` and `useAuth.ts`. `AuthProvider` restores the session with `getSession` and stays in sync through `onAuthStateChange`.
+- `src/components/ProtectedRoute.tsx` sends signed-out users to `/login` and remembers the page they were trying to reach.
+- `src/pages/LoginPage.tsx` has labelled email and password fields and a "Logging in..." state that disables the button. It shows friendly error messages instead of raw Supabase errors.
+- `src/components/AppHeader.tsx` shows "Signed in as <email>" and a Logout button.
+- `src/pages/DashboardPage.tsx` is a placeholder. The real dashboard is Phase 4.
+- `src/lib/styles.ts` holds the shared button and input styles. They have 44px touch targets and visible focus outlines.
+
+**Testing:** The agent drove headless Chrome with Playwright against the live Supabase project and checked 11 things:
+
+- The redirect when signed out.
+- The message for a wrong password.
+- A successful login.
+- The email shown in the header.
+- The session surviving a page refresh.
+- The redirect from `/login` when already signed in.
+- Logout.
+- `/dashboard` being protected again after logout.
+- The 404 page.
+- No uncaught errors.
+
+Playwright was installed outside the project, so it is not a project dependency.
+
+**Problem:** On the first run, the "shows signed-in instructor" check failed. The agent checked what the header actually contained, and the email was there. The test had checked visibility once, without waiting, and ran before React finished rendering the header. After changing it to wait for the element, everything passed on two consecutive runs.
+
+**Decisions:**
+
+- **Friendly login errors:** "Incorrect email or password." and "Could not reach the server..." replace the raw error text (API.md §13).
+- **Redirect after login:** you return to the page you originally asked for, or `/dashboard` by default.
+- **Logout destination:** logout returns you to `/login`.
+
+---
+
 ## Decisions made ahead of later phases
 
 - **Phase 5, editing:** only **Draft** surveys can be edited. The assignment says "edit existing draft surveys". TODO.md implied that closed surveys could be edited too, but deleting a question from a closed survey would also delete stored student answers. To reuse a closed survey, duplicate it instead.

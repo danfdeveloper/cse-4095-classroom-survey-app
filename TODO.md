@@ -46,13 +46,13 @@ This roadmap breaks the implementation into small, testable phases ordered from 
 
 # Phase 3 — Instructor Authentication
 
-- [ ] Create the instructor login page.
-- [ ] Connect login to Supabase Auth.
-- [ ] Add logout.
-- [ ] Create an authentication context/provider.
-- [ ] Create a protected-route component.
-- [ ] Redirect unauthenticated users to login.
-- [ ] Show the logged-in instructor in the dashboard.
+- [x] Create the instructor login page.
+- [x] Connect login to Supabase Auth.
+- [x] Add logout.
+- [x] Create an authentication context/provider.
+- [x] Create a protected-route component.
+- [x] Redirect unauthenticated users to login.
+- [x] Show the logged-in instructor in the dashboard.
 
 ---
 
