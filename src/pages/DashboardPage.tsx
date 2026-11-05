@@ -1,9 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router'
-import AppHeader from '../components/AppHeader.tsx'
+import { Link, useNavigate, useSearchParams } from 'react-router'
+import AppLayout from '../components/AppLayout.tsx'
 import ConfirmDialog from '../components/ConfirmDialog.tsx'
 import SurveyCard, { type SurveyAction } from '../components/SurveyCard.tsx'
+import { rememberDashboardSearch } from '../lib/dashboardLink.ts'
 import { buttonPrimary, input } from '../lib/styles.ts'
+import {
+  DATE_RANGE_LABELS,
+  filterSurveys,
+  filtersFromParams,
+  filtersToParams,
+  isFiltered,
+  type DateRange,
+  type SurveyFilters,
+} from '../lib/surveyFilters.ts'
 import {
   activateSurvey,
   archiveSurvey,
@@ -15,7 +25,6 @@ import {
   STATUS_LABELS,
   SURVEY_STATUSES,
   type SurveyListItem,
-  type SurveyStatus,
 } from '../lib/surveys.ts'
 
 type Pending = { action: SurveyAction; survey: SurveyListItem } | null
@@ -26,8 +35,11 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
-  const [query, setQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState<SurveyStatus | 'all'>('all')
+  // Filters live in the URL so they survive visiting Results and coming back.
+  const [params, setParams] = useSearchParams()
+  const filters = useMemo(() => filtersFromParams(params), [params])
+  const setFilters = (next: Partial<SurveyFilters>) =>
+    setParams(filtersToParams({ ...filters, ...next }), { replace: true })
   const [pending, setPending] = useState<Pending>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
 
@@ -50,14 +62,9 @@ export default function DashboardPage() {
 
   const activeSurvey = surveys.find((s) => s.status === 'active')
 
-  const visible = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    return surveys.filter(
-      (s) =>
-        (statusFilter === 'all' || s.status === statusFilter) &&
-        (!q || s.title.toLowerCase().includes(q)),
-    )
-  }, [surveys, query, statusFilter])
+  const visible = useMemo(() => filterSurveys(surveys, filters), [surveys, filters])
+
+  useEffect(() => rememberDashboardSearch(params.toString()), [params])
 
   async function run(action: SurveyAction, survey: SurveyListItem) {
     setActionError(null)
@@ -93,93 +100,156 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-svh">
-      <AppHeader />
-      <main className="mx-auto max-w-5xl px-4 py-8">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <h1 className="text-2xl font-bold">Dashboard</h1>
-          <Link to="/surveys/new" className={buttonPrimary}>
-            New Survey
-          </Link>
-        </div>
+    <AppLayout title="Dashboard">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <h1 className="text-2xl font-bold">Dashboard</h1>
+        <Link to="/surveys/new" className={buttonPrimary}>
+          New Survey
+        </Link>
+      </div>
 
-        <div className="mt-6 grid gap-4 sm:grid-cols-[1fr_12rem]">
-          <div>
-            <label htmlFor="search" className="mb-1 block text-sm font-medium">
-              Search
-            </label>
-            <input
-              id="search"
-              type="search"
-              placeholder="Survey title"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className={input}
-            />
-          </div>
-          <div>
-            <label htmlFor="status" className="mb-1 block text-sm font-medium">
-              Status
-            </label>
-            <select
-              id="status"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as SurveyStatus | 'all')}
-              className={input}
-            >
-              <option value="all">All</option>
-              {SURVEY_STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {STATUS_LABELS[s]}
-                </option>
-              ))}
-            </select>
-          </div>
+      <div
+        role="search"
+        aria-label="Filter surveys"
+        className="mt-6 grid gap-4 sm:grid-cols-[1fr_11rem_11rem]"
+      >
+        <div>
+          <label htmlFor="search" className="mb-1 block text-sm font-medium">
+            Search
+          </label>
+          <input
+            id="search"
+            type="search"
+            placeholder="Survey title"
+            value={filters.query}
+            onChange={(e) => setFilters({ query: e.target.value })}
+            className={input}
+          />
         </div>
-
-        {actionError && (
-          <p role="alert" className="mt-6 rounded-lg bg-red-50 px-4 py-3 text-red-800">
-            {actionError}
-          </p>
+        <div>
+          <label htmlFor="status" className="mb-1 block text-sm font-medium">
+            Status
+          </label>
+          <select
+            id="status"
+            value={filters.status}
+            onChange={(e) => setFilters({ status: e.target.value as SurveyFilters['status'] })}
+            className={input}
+          >
+            <option value="all">All</option>
+            {SURVEY_STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {STATUS_LABELS[s]}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label htmlFor="created" className="mb-1 block text-sm font-medium">
+            Created
+          </label>
+          <select
+            id="created"
+            value={filters.range}
+            onChange={(e) => setFilters({ range: e.target.value as DateRange })}
+            className={input}
+          >
+            {(Object.keys(DATE_RANGE_LABELS) as DateRange[]).map((r) => (
+              <option key={r} value={r}>
+                {DATE_RANGE_LABELS[r]}
+              </option>
+            ))}
+          </select>
+        </div>
+        {filters.range === 'custom' && (
+          <div className="grid grid-cols-2 gap-4 sm:col-span-3 sm:max-w-md">
+            <div>
+              <label htmlFor="from" className="mb-1 block text-sm font-medium">
+                From
+              </label>
+              <input
+                id="from"
+                type="date"
+                value={filters.from}
+                max={filters.to || undefined}
+                onChange={(e) => setFilters({ from: e.target.value })}
+                className={input}
+              />
+            </div>
+            <div>
+              <label htmlFor="to" className="mb-1 block text-sm font-medium">
+                To
+              </label>
+              <input
+                id="to"
+                type="date"
+                value={filters.to}
+                min={filters.from || undefined}
+                onChange={(e) => setFilters({ to: e.target.value })}
+                className={input}
+              />
+            </div>
+          </div>
         )}
+      </div>
 
-        <section aria-live="polite" className="mt-6">
-          {loading ? (
-            <p role="status" className="text-slate-600">
-              Loading surveys...
-            </p>
-          ) : loadError ? (
-            <div role="alert" className="rounded-lg bg-red-50 px-4 py-3 text-red-800">
-              <p>{loadError}</p>
-              <button type="button" onClick={load} className="mt-2 font-medium underline">
-                Try again
-              </button>
-            </div>
-          ) : surveys.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center">
-              <p className="text-lg text-slate-700">You have not created any surveys yet.</p>
-              <Link to="/surveys/new" className={`${buttonPrimary} mt-5`}>
-                Create Your First Survey
-              </Link>
-            </div>
-          ) : visible.length === 0 ? (
-            <p className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center text-lg text-slate-700">
-              No surveys match your search.
-            </p>
-          ) : (
-            <ul className="grid gap-4">
-              {visible.map((survey) => (
-                <SurveyCard
-                  key={survey.id}
-                  survey={survey}
-                  busy={busyId === survey.id}
-                  onAction={handleAction}
-                />
-              ))}
-            </ul>
-          )}
-        </section>
-      </main>
+      {!loading && !loadError && surveys.length > 0 && isFiltered(filters) && (
+        <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-slate-600">
+          <p aria-live="polite">
+            Showing {visible.length} of {surveys.length} surveys
+          </p>
+          <button
+            type="button"
+            onClick={() => setParams(new URLSearchParams(), { replace: true })}
+            className="min-h-11 font-medium text-blue-700 underline"
+          >
+            Clear filters
+          </button>
+        </div>
+      )}
+
+      {actionError && (
+        <p role="alert" className="mt-6 rounded-lg bg-red-50 px-4 py-3 text-red-800">
+          {actionError}
+        </p>
+      )}
+
+      <section aria-live="polite" className="mt-6">
+        {loading ? (
+          <p role="status" className="text-slate-600">
+            Loading surveys...
+          </p>
+        ) : loadError ? (
+          <div role="alert" className="rounded-lg bg-red-50 px-4 py-3 text-red-800">
+            <p>{loadError}</p>
+            <button type="button" onClick={load} className="mt-2 font-medium underline">
+              Try again
+            </button>
+          </div>
+        ) : surveys.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center">
+            <p className="text-lg text-slate-700">You have not created any surveys yet.</p>
+            <Link to="/surveys/new" className={`${buttonPrimary} mt-5`}>
+              Create Your First Survey
+            </Link>
+          </div>
+        ) : visible.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center text-lg text-slate-700">
+            No surveys match your search.
+          </p>
+        ) : (
+          <ul className="grid gap-4">
+            {visible.map((survey) => (
+              <SurveyCard
+                key={survey.id}
+                survey={survey}
+                busy={busyId === survey.id}
+                onAction={handleAction}
+              />
+            ))}
+          </ul>
+        )}
+      </section>
 
       <ConfirmDialog
         open={pending !== null}
@@ -192,7 +262,7 @@ export default function DashboardPage() {
       >
         {pending && <ConfirmBody pending={pending} activeTitle={activeSurvey?.title} />}
       </ConfirmDialog>
-    </div>
+    </AppLayout>
   )
 }
 

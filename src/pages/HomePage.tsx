@@ -1,8 +1,10 @@
 import { Link } from 'react-router'
 import { buttonPrimary } from '../lib/styles.ts'
 import PageShell from '../components/PageShell.tsx'
+import { useDocumentTitle } from '../lib/useDocumentTitle.ts'
 
 export default function HomePage() {
+  useDocumentTitle()
   return (
     <PageShell>
       <h1 className="text-3xl font-bold tracking-tight">Classroom Survey</h1>

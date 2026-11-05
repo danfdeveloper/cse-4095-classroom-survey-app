@@ -53,6 +53,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   TITLE_REQUIRED: 'Enter a survey title.',
   QUESTION_TEXT_REQUIRED: 'Every question needs text.',
   CHOICE_TEXT_REQUIRED: 'Every choice needs text.',
+  SURVEY_LOCKED: 'Questions cannot be changed once a survey has been activated.',
+  RESPONSES_READ_ONLY: 'Student responses cannot be changed or deleted individually.',
 }
 
 /** Converts a Supabase/network error into a message safe to show the instructor. */

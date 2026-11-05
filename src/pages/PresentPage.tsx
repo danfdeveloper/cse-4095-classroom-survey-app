@@ -4,6 +4,7 @@ import { Link, useParams } from 'react-router'
 import ConfirmDialog from '../components/ConfirmDialog.tsx'
 import { displayUrl, publicSurveyUrl } from '../lib/publicUrl.ts'
 import { buildQrPng } from '../lib/qrImage.ts'
+import { useDocumentTitle } from '../lib/useDocumentTitle.ts'
 import { buttonDanger, buttonPrimary, buttonSecondary } from '../lib/styles.ts'
 import {
   closeSurvey,
@@ -14,6 +15,7 @@ import {
   STATUS_LABELS,
   type Survey,
 } from '../lib/surveys.ts'
+import { dashboardPath } from '../lib/dashboardLink.ts'
 
 /** How often the response count refreshes while the survey is active. */
 const POLL_MS = 5000
@@ -31,6 +33,7 @@ export default function PresentPage() {
   const [confirmClose, setConfirmClose] = useState(false)
   const [closing, setClosing] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
+  useDocumentTitle(state.kind === 'ready' ? `Present: ${state.survey.title}` : 'Present')
 
   useEffect(() => {
     let active = true
@@ -132,7 +135,7 @@ export default function PresentPage() {
             {state.message}
           </p>
         )}
-        <Link to="/dashboard" className={buttonSecondary}>
+        <Link to={dashboardPath()} className={buttonSecondary}>
           Back to Dashboard
         </Link>
       </main>
@@ -207,7 +210,7 @@ export default function PresentPage() {
             </button>
           </>
         )}
-        <Link to="/dashboard" className={buttonSecondary}>
+        <Link to={dashboardPath()} className={buttonSecondary}>
           Dashboard
         </Link>
       </div>

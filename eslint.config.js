@@ -7,7 +7,7 @@ import globals from 'globals'
 import tseslint from 'typescript-eslint'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  globalIgnores(['dist', 'playwright-report', 'test-results']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
@@ -23,7 +23,7 @@ export default defineConfig([
     },
   },
   {
-    files: ['scripts/**/*.ts', 'vite.config.ts'],
+    files: ['scripts/**/*.ts', 'tests/**/*.ts', 'vite.config.ts', 'playwright.config.ts'],
     languageOptions: { globals: globals.node },
   },
 ])

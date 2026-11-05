@@ -157,21 +157,21 @@ This roadmap breaks the implementation into small, testable phases ordered from 
 
 - [x] Allow viewing results for Closed surveys.
 - [x] Allow viewing results for Archived surveys.
-- [ ] Add filtering by date.
-- [ ] Add filtering by survey title.
-- [ ] Preserve all historical response data.
+- [x] Add filtering by date.
+- [x] Add filtering by survey title.
+- [x] Preserve all historical response data.
 
 ---
 
 # Phase 11 — CSV Export
 
-- [ ] Add Export CSV button.
-- [ ] Export survey metadata.
-- [ ] Export one row per response.
-- [ ] Include submission timestamp.
-- [ ] Include each question and answer.
-- [ ] Create safe CSV escaping.
-- [ ] Test export with spreadsheet applications.
+- [x] Add Export CSV button.
+- [x] Export survey metadata.
+- [x] Export one row per response.
+- [x] Include submission timestamp.
+- [x] Include each question and answer.
+- [x] Create safe CSV escaping.
+- [x] Test export with spreadsheet applications.
 
 ---
 
@@ -188,34 +188,34 @@ This roadmap breaks the implementation into small, testable phases ordered from 
 
 # Phase 13 — UI Polish
 
-- [ ] Add consistent page layouts.
-- [ ] Improve mobile responsiveness.
-- [ ] Add loading states.
-- [ ] Add empty states.
-- [ ] Add error messages.
+- [x] Add consistent page layouts.
+- [x] Improve mobile responsiveness.
+- [x] Add loading states.
+- [x] Add empty states.
+- [x] Add error messages.
 - [x] Add confirmation dialogs for destructive actions.
 - [x] Improve QR-code presentation for classroom projection.
-- [ ] Test accessibility and keyboard navigation.
-- [ ] Improve color contrast.
+- [x] Test accessibility and keyboard navigation.
+- [x] Improve color contrast.
 
 ---
 
 # Phase 14 — Testing
 
-- [ ] Test instructor login.
-- [ ] Test survey creation.
-- [ ] Test survey editing.
-- [ ] Test activation.
-- [ ] Test closing surveys.
-- [ ] Test QR-code links.
-- [ ] Test student submissions.
-- [ ] Test duplicate-submission prevention.
-- [ ] Test results calculations.
-- [ ] Test CSV export.
-- [ ] Test mobile layout.
-- [ ] Test with at least two browsers.
-- [ ] Test unauthorized access attempts.
-- [ ] Test database Row Level Security.
+- [x] Test instructor login.
+- [x] Test survey creation.
+- [x] Test survey editing.
+- [x] Test activation.
+- [x] Test closing surveys.
+- [x] Test QR-code links.
+- [x] Test student submissions.
+- [x] Test duplicate-submission prevention.
+- [x] Test results calculations.
+- [x] Test CSV export.
+- [x] Test mobile layout.
+- [x] Test with at least two browsers.
+- [x] Test unauthorized access attempts.
+- [x] Test database Row Level Security.
 
 ---
 

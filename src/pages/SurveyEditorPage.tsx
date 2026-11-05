@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
-import AppHeader from '../components/AppHeader.tsx'
+import AppLayout from '../components/AppLayout.tsx'
 import ConfirmDialog from '../components/ConfirmDialog.tsx'
 import FieldError from '../components/FieldError.tsx'
 import QuestionEditor from '../components/QuestionEditor.tsx'
@@ -29,6 +29,7 @@ import {
   type Survey,
   type SurveyStatus,
 } from '../lib/surveys.ts'
+import { dashboardPath } from '../lib/dashboardLink.ts'
 
 type LoadState =
   | { kind: 'loading' }
@@ -257,6 +258,11 @@ export default function SurveyEditorPage() {
             Questions
           </h2>
           <FieldError id={ids.questions} message={errors[ids.questions]} />
+          {draft.questions.length === 0 && (
+            <p className="mt-3 rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-slate-700">
+              This survey has no questions yet. Add one below.
+            </p>
+          )}
           <ol className="mt-3 space-y-4">
             {draft.questions.map((q, i) => (
               <QuestionEditor
@@ -389,7 +395,7 @@ function LockedNotice({ survey }: { survey: Survey }) {
         <button type="button" onClick={duplicate} disabled={dupBusy} className={buttonPrimary}>
           {dupBusy ? 'Duplicating...' : 'Duplicate to Edit'}
         </button>
-        <Link to="/dashboard" className={buttonSecondary}>
+        <Link to={dashboardPath()} className={buttonSecondary}>
           Back to Dashboard
         </Link>
       </div>
@@ -406,17 +412,14 @@ function lockedReason(status: SurveyStatus) {
 
 function EditorShell({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="min-h-svh">
-      <AppHeader />
-      <main className="mx-auto max-w-3xl px-4 py-8">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-2xl font-bold">{title}</h1>
-          <Link to="/dashboard" className="font-medium text-blue-700 underline">
-            Back to Dashboard
-          </Link>
-        </div>
-        {children}
-      </main>
-    </div>
+    <AppLayout width="narrow" title={title}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold">{title}</h1>
+        <Link to={dashboardPath()} className="font-medium text-blue-700 underline">
+          Back to Dashboard
+        </Link>
+      </div>
+      {children}
+    </AppLayout>
   )
 }

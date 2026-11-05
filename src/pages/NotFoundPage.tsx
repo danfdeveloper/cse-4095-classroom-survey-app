@@ -1,7 +1,9 @@
 import { Link } from 'react-router'
 import PageShell from '../components/PageShell.tsx'
+import { useDocumentTitle } from '../lib/useDocumentTitle.ts'
 
 export default function NotFoundPage() {
+  useDocumentTitle('Page not found')
   return (
     <PageShell>
       <h1 className="text-2xl font-bold">Page not found</h1>

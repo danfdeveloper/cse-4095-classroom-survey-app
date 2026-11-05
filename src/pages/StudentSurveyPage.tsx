@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { useParams } from 'react-router'
 import { getAnonymousToken, hasSubmitted, markSubmitted } from '../lib/anonymousToken.ts'
 import { focusSoon } from '../lib/focus.ts'
+import { useDocumentTitle } from '../lib/useDocumentTitle.ts'
 import { buttonPrimary } from '../lib/styles.ts'
 import {
   getPublicSurvey,
@@ -25,6 +26,7 @@ export default function StudentSurveyPage() {
   const { slug = '' } = useParams()
   const [view, setView] = useState<View>({ kind: 'loading' })
   const [attempt, setAttempt] = useState(0)
+  useDocumentTitle(view.kind === 'form' ? view.data.survey.title : undefined)
 
   useEffect(() => {
     let active = true
@@ -35,7 +37,6 @@ export default function StudentSurveyPage() {
         else if (result.status === 'closed') setView({ kind: 'closed' })
         else if (hasSubmitted(result.survey.id)) setView({ kind: 'already-submitted' })
         else {
-          document.title = result.survey.title
           setView({ kind: 'form', data: result })
         }
       })
@@ -49,9 +50,7 @@ export default function StudentSurveyPage() {
     case 'loading':
       return (
         <Message>
-          <p role="status" className="text-lg text-slate-600">
-            Loading survey...
-          </p>
+          <p className="text-lg text-slate-600">Loading survey...</p>
         </Message>
       )
     case 'load-error':
@@ -225,12 +224,10 @@ function QuestionField({
 function Message({ title, children }: { title?: string; children?: ReactNode }) {
   return (
     <main className="mx-auto flex min-h-svh max-w-xl flex-col justify-center px-4 py-12 text-center">
-      {title && (
-        <h1 role="status" className="text-2xl leading-tight font-bold">
-          {title}
-        </h1>
-      )}
-      {children && <div className="mt-3 text-lg text-slate-700">{children}</div>}
+      <div role="status">
+        {title && <h1 className="text-2xl leading-tight font-bold">{title}</h1>}
+        {children && <div className="mt-3 text-lg text-slate-700">{children}</div>}
+      </div>
     </main>
   )
 }

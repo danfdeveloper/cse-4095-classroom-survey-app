@@ -324,6 +324,74 @@ async function main() {
   const closedSubmit = await submit(anon, survey.id, 'tok-6', good)
   check('submission to closed survey rejected', closedSubmit.error?.message === 'SURVEY_NOT_ACTIVE')
 
+  // --- History is preserved (DB triggers) --------------------------------
+  const locked = (r: { error: { message: string } | null }, code: string) =>
+    r.error?.message === code
+  const qEdit = await instructor
+    .from('questions')
+    .update({ question_text: 'changed' })
+    .eq('id', mc.id)
+  check(
+    'closed survey: question text cannot be edited',
+    locked(qEdit, 'SURVEY_LOCKED'),
+    qEdit.error?.message,
+  )
+  const qAdd = await instructor.from('questions').insert({
+    survey_id: survey.id,
+    question_text: 'new',
+    question_type: 'true_false',
+    position: 9,
+  })
+  check(
+    'closed survey: questions cannot be added',
+    locked(qAdd, 'SURVEY_LOCKED'),
+    qAdd.error?.message,
+  )
+  const cDel = await instructor.from('choices').delete().eq('id', mcA.id)
+  check(
+    'closed survey: choices cannot be deleted',
+    locked(cDel, 'SURVEY_LOCKED'),
+    cDel.error?.message,
+  )
+  const qDel = await instructor.from('questions').delete().eq('id', tf.id)
+  check(
+    'closed survey: questions cannot be deleted',
+    locked(qDel, 'SURVEY_LOCKED'),
+    qDel.error?.message,
+  )
+
+  const respRows = must(
+    await instructor.from('responses').select('id').eq('survey_id', survey.id),
+    'responses',
+  )
+  const rEdit = await instructor
+    .from('responses')
+    .update({ anonymous_token: 'x' })
+    .eq('id', respRows[0].id)
+  check('responses cannot be edited', locked(rEdit, 'RESPONSES_READ_ONLY'), rEdit.error?.message)
+  const rDel = await instructor.from('responses').delete().eq('id', respRows[0].id)
+  check(
+    'a single response cannot be deleted',
+    locked(rDel, 'RESPONSES_READ_ONLY'),
+    rDel.error?.message,
+  )
+  const aEdit = await instructor
+    .from('answers')
+    .update({ choice_id: mcB.id })
+    .eq('response_id', respRows[0].id)
+    .eq('question_id', mc.id)
+  check('answers cannot be edited', locked(aEdit, 'RESPONSES_READ_ONLY'), aEdit.error?.message)
+  const aDel = await instructor.from('answers').delete().eq('response_id', respRows[0].id)
+  check('answers cannot be deleted', locked(aDel, 'RESPONSES_READ_ONLY'), aDel.error?.message)
+  const still = must(
+    await instructor.rpc('get_survey_results', { p_survey_id: survey.id }),
+    'results after tampering',
+  ) as { response_count: number; questions: { question_text: string }[] }
+  check(
+    'results unchanged after blocked tampering',
+    still.response_count === 2 && still.questions.map((q) => q.question_text).join() === 'MC?,TF?',
+  )
+
   const reactivate = await instructor.rpc('activate_survey', { p_survey_id: survey.id })
   check(
     'closed survey cannot be re-activated',
@@ -567,7 +635,12 @@ try {
   }
   if (surveyId) {
     const del = await instructor.from('surveys').delete().eq('id', surveyId)
-    check('instructor can delete survey (cascades)', !del.error, del.error?.message)
+    const leftovers = await instructor.from('responses').select('id').eq('survey_id', surveyId)
+    check(
+      'deleting a whole survey still cascades through locked questions and responses',
+      !del.error && (leftovers.data ?? []).length === 0,
+      del.error?.message,
+    )
   }
   await instructor.auth.signOut()
   console.log(failures ? `\n${failures} check(s) failed` : '\nAll checks passed')

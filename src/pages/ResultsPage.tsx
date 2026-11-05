@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
-import AppHeader from '../components/AppHeader.tsx'
+import AppLayout from '../components/AppLayout.tsx'
 import ChoiceBarChart from '../components/ChoiceBarChart.tsx'
 import StatusBadge from '../components/StatusBadge.tsx'
 import {
@@ -11,6 +11,8 @@ import {
 } from '../lib/results.ts'
 import { buttonPrimary, buttonSecondary } from '../lib/styles.ts'
 import { friendlyError } from '../lib/surveys.ts'
+import { dashboardPath } from '../lib/dashboardLink.ts'
+import { exportResultsCsv } from '../lib/exportResults.ts'
 
 const timeFormat = new Intl.DateTimeFormat('en-US', {
   hour: 'numeric',
@@ -34,6 +36,19 @@ export default function ResultsPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null)
+  const [exporting, setExporting] = useState(false)
+
+  async function handleExport() {
+    setExporting(true)
+    setError(null)
+    try {
+      await exportResultsCsv(id)
+    } catch (e) {
+      setError(friendlyError(e))
+    } finally {
+      setExporting(false)
+    }
+  }
 
   const load = useCallback(async () => {
     setRefreshing(true)
@@ -58,94 +73,94 @@ export default function ResultsPage() {
   }, [load])
 
   return (
-    <div className="min-h-svh">
-      <AppHeader />
-      <main className="mx-auto max-w-4xl px-4 py-8">
-        {status === 'loading' && (
-          <p role="status" className="text-slate-600">
-            Loading results...
-          </p>
-        )}
+    <AppLayout width="medium" title={results ? `Results: ${results.title}` : 'Results'}>
+      {status === 'loading' && (
+        <p role="status" className="text-slate-600">
+          Loading results...
+        </p>
+      )}
 
-        {status === 'not-found' && (
-          <>
-            <p className="text-lg text-slate-700">Survey not found.</p>
-            <Link to="/dashboard" className={`${buttonSecondary} mt-4`}>
-              Back to Dashboard
-            </Link>
-          </>
-        )}
+      {status === 'not-found' && (
+        <>
+          <p className="text-lg text-slate-700">Survey not found.</p>
+          <Link to={dashboardPath()} className={`${buttonSecondary} mt-4`}>
+            Back to Dashboard
+          </Link>
+        </>
+      )}
 
-        {error && (
-          <p role="alert" className="mb-6 rounded-lg bg-red-50 px-4 py-3 text-red-800">
-            {error}
-          </p>
-        )}
+      {error && (
+        <p role="alert" className="mb-6 rounded-lg bg-red-50 px-4 py-3 text-red-800">
+          {error}
+        </p>
+      )}
 
-        {status === 'ready' && results && (
-          <>
-            <header>
-              <div className="flex flex-wrap items-center gap-3">
-                <h1 className="text-2xl font-bold break-words sm:text-3xl">{results.title}</h1>
-                <StatusBadge status={results.status} />
-              </div>
-              <p className="mt-2 text-xl text-slate-800">
-                <span className="font-semibold">{results.response_count}</span>{' '}
-                {results.response_count === 1 ? 'response' : 'responses'}
-              </p>
-              <p className="mt-1 text-sm text-slate-600" aria-live="polite">
-                {results.last_response_at &&
-                  `Last response ${dateTimeFormat.format(new Date(results.last_response_at))}. `}
-                {updatedAt && `Updated ${timeFormat.format(updatedAt)}.`}
-              </p>
+      {status === 'ready' && results && (
+        <>
+          <header>
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-2xl font-bold break-words sm:text-3xl">{results.title}</h1>
+              <StatusBadge status={results.status} />
+            </div>
+            <p className="mt-2 text-xl text-slate-800">
+              <span className="font-semibold">{results.response_count}</span>{' '}
+              {results.response_count === 1 ? 'response' : 'responses'}
+            </p>
+            <p className="mt-1 text-sm text-slate-600" aria-live="polite">
+              {results.last_response_at &&
+                `Last response ${dateTimeFormat.format(new Date(results.last_response_at))}. `}
+              {updatedAt && `Updated ${timeFormat.format(updatedAt)}.`}
+            </p>
 
-              <div className="mt-5 flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  onClick={load}
-                  disabled={refreshing}
-                  className={buttonPrimary}
-                >
-                  {refreshing ? 'Refreshing...' : 'Refresh'}
-                </button>
-                {results.status === 'active' && (
-                  <Link to={`/surveys/${results.survey_id}/present`} className={buttonSecondary}>
-                    Present QR
-                  </Link>
-                )}
-                <Link to="/dashboard" className={buttonSecondary}>
-                  Back to Dashboard
+            <div className="mt-5 flex flex-wrap gap-3">
+              <button type="button" onClick={load} disabled={refreshing} className={buttonPrimary}>
+                {refreshing ? 'Refreshing...' : 'Refresh'}
+              </button>
+              <button
+                type="button"
+                onClick={handleExport}
+                disabled={exporting}
+                className={buttonSecondary}
+              >
+                {exporting ? 'Exporting...' : 'Export CSV'}
+              </button>
+              {results.status === 'active' && (
+                <Link to={`/surveys/${results.survey_id}/present`} className={buttonSecondary}>
+                  Present QR
                 </Link>
-              </div>
-            </header>
+              )}
+              <Link to={dashboardPath()} className={buttonSecondary}>
+                Back to Dashboard
+              </Link>
+            </div>
+          </header>
 
-            {results.response_count === 0 && (
-              <div className="mt-8 rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center">
-                <p className="text-lg font-medium text-slate-800">No responses yet.</p>
-                {results.status === 'active' && (
-                  <p className="mt-1 text-slate-600">Display the QR code so students can join.</p>
-                )}
-              </div>
-            )}
+          {results.response_count === 0 && (
+            <div className="mt-8 rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center">
+              <p className="text-lg font-medium text-slate-800">No responses yet.</p>
+              {results.status === 'active' && (
+                <p className="mt-1 text-slate-600">Display the QR code so students can join.</p>
+              )}
+            </div>
+          )}
 
-            {/* Hold the previous render, dimmed, while refreshing: no layout jump. */}
-            <ol
-              className={`mt-8 space-y-6 transition-opacity ${refreshing ? 'opacity-60' : ''}`}
-              aria-busy={refreshing}
-            >
-              {results.questions.map((q, i) => (
-                <QuestionCard
-                  key={q.question_id}
-                  question={q}
-                  number={i + 1}
-                  totalResponses={results.response_count}
-                />
-              ))}
-            </ol>
-          </>
-        )}
-      </main>
-    </div>
+          {/* Hold the previous render, dimmed, while refreshing: no layout jump. */}
+          <ol
+            className={`mt-8 space-y-6 transition-opacity ${refreshing ? 'opacity-60' : ''}`}
+            aria-busy={refreshing}
+          >
+            {results.questions.map((q, i) => (
+              <QuestionCard
+                key={q.question_id}
+                question={q}
+                number={i + 1}
+                totalResponses={results.response_count}
+              />
+            ))}
+          </ol>
+        </>
+      )}
+    </AppLayout>
   )
 }
 

@@ -403,6 +403,115 @@ The earlier tests (verify-db, login, dashboard and editor) all still pass.
 
 ---
 
+## Phase 11 — CSV export
+
+**Prompt:** "Continue to next phase."
+
+**Agent output:**
+
+- **`src/lib/csv.ts`:** pure CSV functions with no imports.
+  - Escaping follows RFC 4180: quote fields that contain `,`, `"`, CR or LF, and double any inner quotes.
+  - **Formula neutralizing:** a cell starting with `=`, `+`, `-`, `@`, tab or CR gets an apostrophe in front, so `=HYPERLINK(...)` shows as text instead of running in Excel, Sheets or Calc (the OWASP "CSV injection" guidance).
+  - A UTF-8 BOM so Excel detects UTF-8, CRLF line endings, and `slugify` for file names.
+- **`src/lib/exportResults.ts`:** fetches the survey, its questions and choices, then pages through responses and answers 1,000 rows at a time, so big classes are never truncated by PostgREST's row limit. It builds the CSV and downloads it as `<title-slug>-results-<date>.csv`, as API.md §12 describes.
+- **An "Export CSV" button** on the results page, which shows "Exporting..." while it runs.
+- **`scripts/test-csv.ts`** (`npm run test:csv`): 25 unit checks for the escaping, the formula neutralizing and the file layout.
+
+**File layout:**
+
+1. A metadata block of `field,value` rows: Survey, Description, Status, Survey ID, Public link code, Created, Exported, Time zone, Responses, Questions.
+2. A blank row.
+3. The response table: `response_id, submitted_at, Q1. <question text>, Q2. …`, with one row per response in submission order. Each cell holds the chosen choice's text.
+
+**Testing (including "Test export with spreadsheet applications"):**
+
+- **Browser test:** it seeds a deliberately hostile survey. The title has quotes, a comma, `&` and accented letters; the description has a newline; the choices include a comma, a newline and `=1+1`; one question's text is `=HYPERLINK("http://evil","click")`. Three students submit, then the test clicks Export CSV in Chrome. It checks the file name, the BOM and the CRLF line endings.
+- **Python `csv` module (strict mode):** the metadata, the blank separator row, the header, the rows in submission order, every answer round-tripping exactly, and the timestamp format.
+- **LibreOffice Calc, run headless:** the file was imported with the UTF-8 / comma / quote filter and converted to `.ods`, then the cell XML was inspected. **No cell became a formula**, the formula-looking text stayed text, Unicode survived, the quoted comma and the embedded newline each stayed in one cell, and the timestamps were recognised as real **date** cells. The agent also rendered the sheet to an image and looked at it.
+- All 18 checks passed on the first run. The results page and `verify:db` suites still pass.
+
+**Problems:** none.
+
+**Decisions:**
+
+- **Metadata block at the top of the same file** rather than a second file. The TODO asks for "survey metadata", and spreadsheets open a block of `field,value` rows above the table without trouble. Anyone parsing the file in code can skip the first 12 rows.
+- **Timestamps** use the instructor's local time as `YYYY-MM-DD HH:MM:SS`, which spreadsheets parse as dates. ISO strings with a `T` and an offset are not recognised as dates by spreadsheets. The time zone name is written into the metadata.
+- **Question column headers are numbered** ("Q1. …"), so two questions with the same text still get distinct columns.
+- **Answers are exported as the choice text,** not as IDs.
+- **A cell that looked like a formula keeps a visible leading apostrophe** (for example `'=1+1`). That is the standard trade-off for blocking formula execution.
+- **The export is built in the browser** (API.md: "No server endpoint is required for MVP").
+
+---
+
+## Phase 13 — UI polish
+
+**Prompt:** "Go to next phase." Phase 12 (duplication) had already been completed in Phase 4.
+
+Most polish items were built along the way: loading, empty and error states on every page, confirmation dialogs, and the projector layout. So this phase was run as an **audit first, then fixes**.
+
+**Audits:**
+
+- **axe-core** (the WCAG rules engine) was injected with Playwright into every page and state at 1280px, 390px and 320px. That covered 66 page states: home, 404, login and login error, the dashboard (with surveys, custom range, no match and an open dialog), the editor (new, errors, existing, locked), Present (active and closed), results (with table, and empty), and the student form, errors, success, already submitted and not found. The audit ran the WCAG 2.0, 2.1 and 2.2 A/AA rules plus best practices, and also checked every state for horizontal scrolling and an empty `<title>`.
+  - **Before the fixes:** 2 distinct issues, both on the student status messages. `role="status"` was placed on the `<h1>`, which overrides its heading role, so the page appeared to have no level-one heading.
+  - **After the fixes:** **0 violations in all 66 states**, including **no color-contrast failures** and no horizontal scrolling at 320px.
+- **Keyboard audit:** Tab was pressed through every page, checking that each focus stop has a visible indicator (an outline or ring; for radio buttons, the parent card's ring) and that focus order follows the layout. It also covered logging in and answering a survey with the keyboard only, and opening, cycling and escaping a confirmation dialog.
+  - **Before the fixes:** there was no skip link. The dialog check also "failed", because Tab moves from the last dialog button into the browser's address bar, which is Chrome's standard behavior for modal dialogs. Page content behind the dialog is never reachable, so the check was corrected to assert exactly that.
+
+**Fixes:**
+
+- **`src/components/AppLayout.tsx`:** one frame for every signed-in page, with a "Skip to main content" link, the header, a focusable `<main id="main">`, and three standard widths (lists, results, forms). It replaced three hand-written page wrappers in the dashboard, editor and results pages.
+- **`src/lib/useDocumentTitle.ts`:** every page now has a distinct tab title, such as "Dashboard · Classroom Survey" or "Results: … · Classroom Survey" (WCAG 2.4.2).
+- **`src/components/ErrorBoundary.tsx`:** catches render errors and failed lazy-page loads. A stale tab after a redeploy can otherwise fail to load renamed chunks and show a blank page. Instead it shows "This page needs to be reloaded." with a Reload button.
+- **Student status messages:** `role="status"` moved to a wrapper `<div>`.
+- **Editor empty state:** "This survey has no questions yet. Add one below." when every question has been deleted.
+
+**Testing:**
+
+- axe: 0 violations in 66 states. The keyboard audit passed all 19 checks.
+- **Extra checks:** the skip link appears on focus, moves focus to `<main>`, and the next Tab lands in page content. With the Results page's code file blocked to imitate a stale deploy, the reload message appears, and Reload recovers the page.
+- **Full regression:** `verify:db`, `test:csv` and all eight browser suites pass. One student-test expectation changed on purpose, because the student tab title now carries the " · Classroom Survey" suffix.
+
+**Decisions:**
+
+- **"Improve color contrast"** needed no changes. The palette was chosen with WCAG AA in mind from Phase 3 on (slate-600 and darker for text, blue-700 buttons), and axe confirmed every rendered text and background pair passes.
+- **The Present and student pages keep their own minimal layouts,** without the instructor header or a skip link. UI.md asks for no navigation there, and those pages have very few focus stops.
+- **Native `<dialog>` focus behavior is accepted as is.** Tab cycles between the dialog and the browser's own interface. That is the platform standard and meets WCAG, because page content is inert while the dialog is open.
+
+---
+
+## Phase 14 — Testing
+
+**Prompt:** "Continue to next phase, I will push changes at the very end." Partway through I added "reduce testing to speedup process", so the agent stopped investigating and finished with one quick confirmation run.
+
+**Agent output:**
+
+- **A Playwright Test suite in the repo** (`tests/e2e/`, `npm run test:e2e`). It replaces the ad-hoc scripts the agent had kept in its scratch folder. There are 9 spec files, one per Phase 14 item: auth and unauthorized access, editor, lifecycle, present (QR links), student, results, CSV, layout and accessibility, and database.
+  - It runs in **three projects:** desktop Chrome (Blink), desktop **Firefox** (Gecko, installed with `npx playwright install firefox`), and an emulated **Pixel 7** phone.
+  - `workers: 1`, because only one survey may be active at a time.
+  - A global setup refuses to run while a real survey is Active, and deletes leftover `[e2e]` surveys.
+  - `database.spec.ts` runs `verify:db` and `test:csv`, so one command covers everything.
+- **New unauthorized-access checks:** a public sign-up attempt is refused (this proves that "authenticated = instructor" holds). Signed-out visitors are redirected away from every instructor page. With the public key, nobody can read drafts, responses or answers, write any table, or call any instructor RPC.
+- **`docs/TESTING.md`:** how to run the tests, a table mapping each Phase 14 item to its test, and a **manual checklist (M1–M10)** for real phones and a second desktop browser, to be done after deployment.
+- `@playwright/test` is pinned to **1.64.1**. 1.65.0 had been published that day without its matching `playwright-core`, so the install failed.
+
+**Results:**
+
+- Chrome: 36 of 37 passed on the first run.
+- Firefox plus phone: 30 passed and 1 failed. 11 were skipped: API-only tests run once, in Chrome.
+
+**Problems:**
+
+1. **Test bug, "Saved":** Playwright's `hasText: 'Saved'` is a case-insensitive _substring_ match, so it also matched "Un**saved** changes". The test read the database before the save finished. It now uses `/^Saved$/`.
+2. **Firefox flake:** the editor once stayed on "Loading survey..." for more than 8 seconds. It passed 4/4 when run alone and 15/15 when the whole editor file ran 5 times. A 30-iteration reproduction script then caught the cause: in the **Vite dev server**, a lazy page import sometimes fails while Vite re-optimizes dependencies on a cold start. The app's error boundary caught it. This cannot happen in a production build. **Fix:** the suite now runs against the production build (`vite build && vite preview`), which is faster and matches what gets deployed. A follow-up Firefox run passed 6 of 6.
+
+**Decisions:**
+
+- **End-to-end tests run against the real Supabase project.** They create, clean up and isolate their own `[e2e]` data instead of mocking the database, so they exercise the actual RLS, RPCs and triggers.
+- **Real-device testing is left to the manual checklist** in `docs/TESTING.md`. Automated tests cannot scan a QR code with a real phone camera.
+- **At my request, testing was cut back** to a single targeted confirmation run instead of repeating every suite.
+
+---
+
 ## Decisions made ahead of later phases
 
 - **Phase 5, editing:** only **Draft** surveys can be edited. The assignment says "edit existing draft surveys". TODO.md implied that closed surveys could be edited too, but deleting a question from a closed survey would also delete stored student answers. To reuse a closed survey, duplicate it instead.

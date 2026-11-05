@@ -3,8 +3,10 @@ import { Navigate, useLocation, useNavigate } from 'react-router'
 import { useAuth } from '../auth/useAuth.ts'
 import PageShell from '../components/PageShell.tsx'
 import { buttonPrimary, input } from '../lib/styles.ts'
+import { useDocumentTitle } from '../lib/useDocumentTitle.ts'
 
 export default function LoginPage() {
+  useDocumentTitle('Instructor Login')
   const { session, loading, signIn } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()

@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { Route, Routes } from 'react-router'
 import AuthProvider from './auth/AuthProvider.tsx'
+import ErrorBoundary from './components/ErrorBoundary.tsx'
 import ProtectedRoute from './components/ProtectedRoute.tsx'
 import HomePage from './pages/HomePage.tsx'
 import NotFoundPage from './pages/NotFoundPage.tsx'
@@ -24,22 +25,24 @@ function PageLoading() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <Suspense fallback={<PageLoading />}>
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/s/:slug" element={<StudentSurveyPage />} />
-          <Route element={<ProtectedRoute />}>
-            <Route path="/dashboard" element={<DashboardPage />} />
-            <Route path="/surveys/new" element={<SurveyEditorPage />} />
-            <Route path="/surveys/:id/edit" element={<SurveyEditorPage />} />
-            <Route path="/surveys/:id/present" element={<PresentPage />} />
-            <Route path="/surveys/:id/results" element={<ResultsPage />} />
-          </Route>
-          <Route path="*" element={<NotFoundPage />} />
-        </Routes>
-      </Suspense>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <Suspense fallback={<PageLoading />}>
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/s/:slug" element={<StudentSurveyPage />} />
+            <Route element={<ProtectedRoute />}>
+              <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/surveys/new" element={<SurveyEditorPage />} />
+              <Route path="/surveys/:id/edit" element={<SurveyEditorPage />} />
+              <Route path="/surveys/:id/present" element={<PresentPage />} />
+              <Route path="/surveys/:id/results" element={<ResultsPage />} />
+            </Route>
+            <Route path="*" element={<NotFoundPage />} />
+          </Routes>
+        </Suspense>
+      </AuthProvider>
+    </ErrorBoundary>
   )
 }
