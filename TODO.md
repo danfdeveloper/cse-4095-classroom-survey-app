@@ -141,22 +141,22 @@ This roadmap breaks the implementation into small, testable phases ordered from 
 
 # Phase 9 — Results Dashboard
 
-- [ ] Create a results page for each survey.
-- [ ] Show total response count.
-- [ ] Aggregate answers by question.
-- [ ] Show counts for each choice.
-- [ ] Show percentages for each choice.
-- [ ] Add bar charts using Recharts.
-- [ ] Clearly label unanswered questions.
-- [ ] Add Refresh Results button.
-- [ ] Add link back to the main dashboard.
+- [x] Create a results page for each survey.
+- [x] Show total response count.
+- [x] Aggregate answers by question.
+- [x] Show counts for each choice.
+- [x] Show percentages for each choice.
+- [x] Add bar charts using Recharts.
+- [x] Clearly label unanswered questions.
+- [x] Add Refresh Results button.
+- [x] Add link back to the main dashboard.
 
 ---
 
 # Phase 10 — Historical Results
 
-- [ ] Allow viewing results for Closed surveys.
-- [ ] Allow viewing results for Archived surveys.
+- [x] Allow viewing results for Closed surveys.
+- [x] Allow viewing results for Archived surveys.
 - [ ] Add filtering by date.
 - [ ] Add filtering by survey title.
 - [ ] Preserve all historical response data.

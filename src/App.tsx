@@ -11,7 +11,7 @@ const LoginPage = lazy(() => import('./pages/LoginPage.tsx'))
 const DashboardPage = lazy(() => import('./pages/DashboardPage.tsx'))
 const SurveyEditorPage = lazy(() => import('./pages/SurveyEditorPage.tsx'))
 const PresentPage = lazy(() => import('./pages/PresentPage.tsx'))
-const ComingSoonPage = lazy(() => import('./pages/ComingSoonPage.tsx'))
+const ResultsPage = lazy(() => import('./pages/ResultsPage.tsx'))
 const StudentSurveyPage = lazy(() => import('./pages/StudentSurveyPage.tsx'))
 
 function PageLoading() {
@@ -35,10 +35,7 @@ export default function App() {
             <Route path="/surveys/new" element={<SurveyEditorPage />} />
             <Route path="/surveys/:id/edit" element={<SurveyEditorPage />} />
             <Route path="/surveys/:id/present" element={<PresentPage />} />
-            <Route
-              path="/surveys/:id/results"
-              element={<ComingSoonPage title="Results" phase={9} />}
-            />
+            <Route path="/surveys/:id/results" element={<ResultsPage />} />
           </Route>
           <Route path="*" element={<NotFoundPage />} />
         </Routes>

@@ -257,6 +257,51 @@ async function main() {
     resp.error?.message,
   )
 
+  // --- get_survey_results (RPC) ------------------------------------------
+  // Add a second response so percentages are non-trivial: MC → B, TF → True.
+  const mcB = choices.find((c) => c.question_id === mc.id && c.choice_text === 'B')!
+  must(
+    await submit(anon, survey.id, 'tok-results', [
+      { question_id: mc.id, choice_id: mcB.id },
+      { question_id: tf.id, choice_id: tfTrue.id },
+    ]),
+    'second response',
+  )
+  const anonResults = await anon.rpc('get_survey_results', { p_survey_id: survey.id })
+  check('anon cannot call get_survey_results', !!anonResults.error)
+  const results = must(
+    await instructor.rpc('get_survey_results', { p_survey_id: survey.id }),
+    'results',
+  ) as {
+    response_count: number
+    last_response_at: string | null
+    questions: {
+      question_text: string
+      response_count: number
+      choices: { choice_text: string; count: number; percentage: number }[]
+    }[]
+  }
+  const fmt = (q: (typeof results.questions)[number]) =>
+    q.choices.map((c) => `${c.choice_text}=${c.count}/${c.percentage}`).join(',')
+  check(
+    'results: total response count and last response time',
+    results.response_count === 2 && results.last_response_at !== null,
+  )
+  check(
+    'results: questions in order with per-question answer counts',
+    results.questions.map((q) => `${q.question_text}:${q.response_count}`).join() === 'MC?:2,TF?:2',
+  )
+  check(
+    'results: choice counts and percentages (incl. zero-count choices)',
+    fmt(results.questions[0]) === 'A=1/50,B=1/50' &&
+      fmt(results.questions[1]) === 'True=2/100,False=0/0',
+    `${fmt(results.questions[0])} | ${fmt(results.questions[1])}`,
+  )
+  const noResults = await instructor.rpc('get_survey_results', {
+    p_survey_id: crypto.randomUUID(),
+  })
+  check('results: unknown survey returns null', !noResults.error && noResults.data === null)
+
   // --- Close (RPC) -------------------------------------------------------
   const anonClose = await anon.rpc('close_survey', { p_survey_id: survey.id })
   check('anon cannot call close_survey', !!anonClose.error)

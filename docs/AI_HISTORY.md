@@ -352,6 +352,57 @@ The earlier tests (verify-db, login, dashboard and editor) all still pass.
 
 ---
 
+## Phase 9 — Results dashboard
+
+**Prompt:** "Okay continue to next phase."
+
+**Agent output:**
+
+- **Migration `20261105030000_survey_results.sql`:** a `get_survey_results(p_survey_id)` RPC that does the aggregation in SQL, which API.md §11 prefers. It returns the total and last-response time, and for each question the answer count and each choice's count and percentage (one decimal place). It runs as `security invoker` and `anon` cannot execute it.
+- **`src/pages/ResultsPage.tsx`:** the header shows the title, status badge and response count, with the "last response" and "updated" times. The actions are Refresh, Present QR (active surveys only) and Back to Dashboard. There is one card per question. A question with no answers is labelled "Unanswered", and the page shows "No responses yet. Display the QR code…" when nobody has responded.
+- **`src/components/ChoiceBarChart.tsx`:** a Recharts horizontal bar chart. Each choice's name sits above its bar, and the count and percentage are at the bar's end. It has a hover/keyboard tooltip, a hidden text summary for screen readers, and a "Show as table" view.
+- **Code splitting:** Recharts (about 107 kB gzipped) loads only on the results page, so students never download it. The unused `ComingSoonPage` was deleted.
+
+**How the chart was designed:** before writing chart code, the agent loaded Claude Code's data-visualization skill and followed it.
+
+- **Form:** each question is a single series of choice counts, so it uses one color and no legend.
+- **Color check:** the bar color `#2a78d6` was run through the skill's palette validator against the white card, and all checks passed.
+- **Marks:** bars are at most 24px thick, with a 4px rounded end and a square baseline.
+- **Labels instead of an axis:** every bar is labelled, so the axis and gridlines were dropped.
+- **Accessibility:** the tooltip leads with the value. Every chart also has a table view, so no number is available only by hovering.
+- **Refresh:** the previous chart stays on screen, dimmed, instead of a loading flash.
+- **Visual check:** the agent took desktop and phone screenshots and checked them visually, as the skill requires.
+
+**Testing:**
+
+- `verify:db` now runs 58 checks. The new ones check that:
+  - anon cannot read results;
+  - the totals, the per-question counts and the exact percentages are right, including 0% choices;
+  - an unknown survey returns null.
+- **A Playwright results test (19 checks) seeds 5 known responses.** It checks that:
+  - every bar shows the right count and percentage, bars are at most 24px thick, and the longest bar matches the largest share;
+  - the tooltip and the table view show the same numbers;
+  - a long choice name is truncated with "…" and its full text is kept;
+  - Refresh picks up a 6th response;
+  - there is no overflow at phone width;
+  - the empty and unanswered states appear;
+  - closed and archived surveys still show their results.
+
+  It passed twice in a row, and all earlier suites still pass.
+
+**Problem:** On the first run, the test crashed with a Playwright "strict mode violation". The page has two `<header>` elements, the app bar and the results header, so `locator('header')` was ambiguous. Scoping the locator to `main header` fixed it. One action-buttons check had also reported a failure in that same crashed run. It passed on every later run, so the agent treated it as part of the same test bug.
+
+**Decisions:**
+
+- **Percentage base:** the percentage is the share of answers to that question, rounded to one decimal. Because every question is required, this equals the share of all responses. If a response ever lacks an answer, the card says "N responses skipped this question".
+- **Every bar is labelled** with "count · percent", which UI.md §9 requires ("always show counts / percentages"). That is why the axis was removed.
+- **"Unanswered" questions** show their choices as a plain list instead of an empty chart.
+- **Refresh is manual** (UI.md). Live updating is Phase 16.
+- **Export CSV is not on the page yet.** It is added in Phase 11.
+- **Phase 10:** the "view Closed/Archived results" items are checked off now. The test confirmed both, and the dashboard already links to Results for those statuses.
+
+---
+
 ## Decisions made ahead of later phases
 
 - **Phase 5, editing:** only **Draft** surveys can be edited. The assignment says "edit existing draft surveys". TODO.md implied that closed surveys could be edited too, but deleting a question from a closed survey would also delete stored student answers. To reuse a closed survey, duplicate it instead.
