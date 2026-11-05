@@ -49,6 +49,7 @@ async function submit(client: SupabaseClient, surveyId: string, token: string, a
 }
 
 let surveyId: string | undefined
+const extraIds: string[] = []
 
 async function main() {
   // --- Instructor login --------------------------------------------------
@@ -122,19 +123,22 @@ async function main() {
   const draftSubmit = await submit(anon, survey.id, 'tok-draft', [])
   check('anon cannot submit to draft', draftSubmit.error?.message === 'SURVEY_NOT_ACTIVE')
 
-  // --- Activate ----------------------------------------------------------
-  const slug = `verify${Math.random().toString(36).slice(2, 8)}`
+  // --- Activate (RPC) ----------------------------------------------------
+  const anonActivate = await anon.rpc('activate_survey', { p_survey_id: survey.id })
+  check('anon cannot call activate_survey', !!anonActivate.error)
+
   const before = survey.updated_at
   const activated = must(
-    await instructor
-      .from('surveys')
-      .update({ status: 'active', public_slug: slug })
-      .eq('id', survey.id)
-      .select()
-      .single(),
+    await instructor.rpc('activate_survey', { p_survey_id: survey.id }),
     'activate',
+  ) as { status: string; public_slug: string; updated_at: string }
+  const slug = activated.public_slug
+  check('activate_survey sets status to active', activated.status === 'active')
+  check(
+    'activate_survey generates a 6-character public slug',
+    /^[a-hjkmnp-z2-9]{6}$/.test(slug ?? ''),
+    String(slug),
   )
-  check('instructor can activate survey', activated.status === 'active')
   check('updated_at trigger bumps timestamp', activated.updated_at !== before)
 
   const second = await instructor
@@ -226,15 +230,121 @@ async function main() {
     resp.error?.message,
   )
 
-  // --- Close -------------------------------------------------------------
-  must(
-    await instructor.from('surveys').update({ status: 'closed' }).eq('id', survey.id).select(),
+  // --- Close (RPC) -------------------------------------------------------
+  const anonClose = await anon.rpc('close_survey', { p_survey_id: survey.id })
+  check('anon cannot call close_survey', !!anonClose.error)
+  const closed = must(
+    await instructor.rpc('close_survey', { p_survey_id: survey.id }),
     'close',
-  )
+  ) as { status: string }
+  check('close_survey sets status to closed', closed.status === 'closed')
   const closedView = await anon.from('surveys').select('id').eq('public_slug', slug)
   check('anon cannot read closed survey', (closedView.data ?? []).length === 0)
   const closedSubmit = await submit(anon, survey.id, 'tok-6', good)
   check('submission to closed survey rejected', closedSubmit.error?.message === 'SURVEY_NOT_ACTIVE')
+
+  const reactivate = await instructor.rpc('activate_survey', { p_survey_id: survey.id })
+  check(
+    'closed survey cannot be re-activated',
+    reactivate.error?.message === 'SURVEY_NOT_DRAFT',
+    reactivate.error?.message,
+  )
+
+  // --- Duplicate (RPC) ---------------------------------------------------
+  const anonDup = await anon.rpc('duplicate_survey', { p_survey_id: survey.id })
+  check('anon cannot call duplicate_survey', !!anonDup.error)
+  const copyId = must(
+    await instructor.rpc('duplicate_survey', { p_survey_id: survey.id }),
+    'duplicate',
+  ) as string
+  extraIds.push(copyId)
+  const copy = must(
+    await instructor
+      .from('surveys')
+      .select('title,status,public_slug,questions(id,choices(id)),responses(count)')
+      .eq('id', copyId)
+      .single(),
+    'load copy',
+  )
+  check('duplicate is named "Copy of ..."', copy.title === 'Copy of [verify-db] temporary survey')
+  check('duplicate is a draft with no slug', copy.status === 'draft' && copy.public_slug === null)
+  check(
+    'duplicate copies questions and choices',
+    copy.questions.length === 2 &&
+      copy.questions.reduce((n: number, q: { choices: unknown[] }) => n + q.choices.length, 0) ===
+        4,
+  )
+  check('duplicate does not copy responses', copy.responses[0]?.count === 0)
+
+  // --- Activation rules --------------------------------------------------
+  const empty = must(
+    await instructor.from('surveys').insert({ title: '[verify-db] empty' }).select().single(),
+    'create empty',
+  )
+  extraIds.push(empty.id)
+  const emptyAct = await instructor.rpc('activate_survey', { p_survey_id: empty.id })
+  check(
+    'survey without questions cannot be activated',
+    emptyAct.error?.message === 'SURVEY_HAS_NO_QUESTIONS',
+    emptyAct.error?.message,
+  )
+  const lonely = must(
+    await instructor
+      .from('questions')
+      .insert({
+        survey_id: empty.id,
+        question_text: 'Q',
+        question_type: 'multiple_choice',
+        position: 1,
+      })
+      .select()
+      .single(),
+    'add question',
+  )
+  must(
+    await instructor
+      .from('choices')
+      .insert({ question_id: lonely.id, choice_text: 'Only', position: 1 })
+      .select(),
+    'add choice',
+  )
+  const oneChoice = await instructor.rpc('activate_survey', { p_survey_id: empty.id })
+  check(
+    'question with fewer than 2 choices blocks activation',
+    oneChoice.error?.message === 'QUESTION_NEEDS_CHOICES',
+    oneChoice.error?.message,
+  )
+
+  must(await instructor.rpc('activate_survey', { p_survey_id: copyId }), 'activate copy')
+  const copy2Id = must(
+    await instructor.rpc('duplicate_survey', { p_survey_id: copyId }),
+    'duplicate copy',
+  ) as string
+  extraIds.push(copy2Id)
+  must(await instructor.rpc('activate_survey', { p_survey_id: copy2Id }), 'activate copy 2')
+  const statuses = must(
+    await instructor.from('surveys').select('id,status').in('id', [copyId, copy2Id]),
+    'statuses',
+  )
+  const statusOf = (id: string) => statuses.find((r) => r.id === id)?.status
+  check(
+    'activating a survey closes the previously active one',
+    statusOf(copyId) === 'closed' && statusOf(copy2Id) === 'active',
+    JSON.stringify(statuses),
+  )
+  must(await instructor.rpc('close_survey', { p_survey_id: copy2Id }), 'close copy 2')
+
+  // --- Archive -----------------------------------------------------------
+  const archived = must(
+    await instructor
+      .from('surveys')
+      .update({ status: 'archived' })
+      .eq('id', copyId)
+      .select()
+      .single(),
+    'archive',
+  )
+  check('instructor can archive a closed survey', archived.status === 'archived')
 }
 
 try {
@@ -243,6 +353,9 @@ try {
   failures++
   console.error('ERROR', e instanceof Error ? e.message : e)
 } finally {
+  if (extraIds.length) {
+    await instructor.from('surveys').delete().in('id', extraIds)
+  }
   if (surveyId) {
     const del = await instructor.from('surveys').delete().eq('id', surveyId)
     check('instructor can delete survey (cascades)', !del.error, del.error?.message)

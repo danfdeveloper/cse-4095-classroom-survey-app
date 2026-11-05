@@ -133,6 +133,62 @@ Playwright was installed outside the project, so it is not a project dependency.
 
 ---
 
+## Phase 4 — Instructor dashboard
+
+**Prompt:** "Continue to next phase."
+
+**Agent output:**
+
+- **Migration `20261105000000_survey_actions.sql`** with three RPCs:
+  - `activate_survey` closes any other Active survey, generates a slug and sets the survey to Active.
+  - `close_survey` sets an Active survey to Closed.
+  - `duplicate_survey` copies the survey into a new Draft called "Copy of ...", with its questions and choices but no responses.
+  - All three are `security invoker`, so RLS applies and `anon` cannot call them.
+- **`src/lib/surveys.ts`:** the survey types and data functions, plus mapping of database error codes to friendly messages.
+- **Dashboard:** survey cards with a text status badge, the creation date and the response count. Each status gets its own set of actions. There is a title search, a status filter, loading, error and empty states, and a New Survey button.
+- **`ConfirmDialog`:** built on the native `<dialog>` element, so focus trapping and Escape to cancel come from the browser. It is used for close, archive, delete, and activating a survey when another one is already Active.
+- **Placeholder pages** for `/surveys/new`, `/surveys/:id/edit`, `/present` and `/results`.
+
+I applied the migration in the Supabase SQL Editor.
+
+**Testing:**
+
+- `npm run verify:db` was extended to 42 checks. The new checks cover all three RPCs, the activation rules, anon being unable to call them, and archiving.
+- A Playwright browser test at phone width (390px) runs 22 checks using the real buttons:
+  - activate, then activate a second survey (confirm dialog, the first one closes);
+  - Escape cancels a dialog; close, archive and delete;
+  - the stronger delete warning when responses exist, and the cascade to responses;
+  - duplicate (redirects to the copy's editor);
+  - search, the status filter and the no-match state;
+  - no horizontal scroll, visible keyboard focus and no console errors.
+- The empty "You have not created any surveys yet." state was checked separately.
+- The test data was deleted afterwards.
+
+**Problem:** The first draft of the migration revoked the slug generator from `authenticated`. Because `activate_survey` runs with the caller's permissions, activation would have failed with "permission denied". The agent caught this while reviewing its own SQL, before it was applied.
+
+**Decisions:**
+
+- **RPCs written early:** activation, close and duplicate were built now, although the plan puts them in Phases 6 and 12, because the dashboard buttons need them. As a result, the matching Phase 6 and Phase 12 TODO items are checked off.
+- **Only Draft surveys can be activated.** Closed surveys are not reopened, which follows UI.md's closed-survey card (Results, Duplicate, Archive). Activating an already Active survey does nothing.
+- **Activation validation:** the survey needs at least one question, and every question needs at least two choices (`SURVEY_HAS_NO_QUESTIONS`, `QUESTION_NEEDS_CHOICES`). The specs do not cover this.
+- **Slug format:** 6 characters from an alphabet without look-alike characters (no 0, o, 1, l or i), drawn from `gen_random_uuid()` randomness. A slug is created on first activation and kept afterwards.
+- **Actions per status:**
+
+  | Status   | Actions                                    |
+  | -------- | ------------------------------------------ |
+  | Draft    | Edit, Activate, Duplicate, Archive, Delete |
+  | Active   | Present, Results, Close, Duplicate         |
+  | Closed   | Results, Duplicate, Archive, Delete        |
+  | Archived | Results, Duplicate, Delete                 |
+
+  Active surveys must be closed before they can be archived or deleted, and there is no "unarchive".
+
+- **Confirmation only when needed:** activation asks for confirmation only when it will close another survey (UI.md: "avoid excessive modal dialogs").
+- **Response count on cards:** each card shows its response count, which UI.md's card mockup does not include. The count is also used for the stronger delete warning UI.md asks for.
+- **After duplicating**, the instructor is redirected to the copy's editor (the Phase 12 behaviour).
+
+---
+
 ## Decisions made ahead of later phases
 
 - **Phase 5, editing:** only **Draft** surveys can be edited. The assignment says "edit existing draft surveys". TODO.md implied that closed surveys could be edited too, but deleting a question from a closed survey would also delete stored student answers. To reuse a closed survey, duplicate it instead.
