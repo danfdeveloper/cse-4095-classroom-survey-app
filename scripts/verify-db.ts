@@ -334,6 +334,134 @@ async function main() {
   )
   must(await instructor.rpc('close_survey', { p_survey_id: copy2Id }), 'close copy 2')
 
+  // --- save_survey (RPC) -------------------------------------------------
+  const payload = [
+    {
+      question_text: ' First? ',
+      question_type: 'multiple_choice',
+      choices: [{ choice_text: 'A' }, { choice_text: 'B' }, { choice_text: 'C' }],
+    },
+    {
+      question_text: 'Second?',
+      question_type: 'true_false',
+      choices: [{ choice_text: 'True' }, { choice_text: 'False' }],
+    },
+  ]
+  const anonSave = await anon.rpc('save_survey', {
+    p_survey_id: null,
+    p_title: 'x',
+    p_description: '',
+    p_questions: payload,
+  })
+  check('anon cannot call save_survey', !!anonSave.error)
+
+  const savedId = must(
+    await instructor.rpc('save_survey', {
+      p_survey_id: null,
+      p_title: '  [verify-db] saved  ',
+      p_description: '   ',
+      p_questions: payload,
+    }),
+    'save new',
+  ) as string
+  extraIds.push(savedId)
+  type Loaded = {
+    title: string
+    description: string | null
+    status: string
+    questions: {
+      question_text: string
+      question_type: string
+      position: number
+      choices: { choice_text: string; position: number }[]
+    }[]
+  }
+  const loadSaved = async () =>
+    must(
+      await instructor
+        .from('surveys')
+        .select(
+          'title,description,status,questions(question_text,question_type,position,choices(choice_text,position))',
+        )
+        .eq('id', savedId)
+        .order('position', { referencedTable: 'questions' })
+        .order('position', { referencedTable: 'questions.choices' })
+        .single(),
+      'load saved',
+    ) as Loaded
+  let saved = await loadSaved()
+  check(
+    'save_survey creates a trimmed draft (blank description → null)',
+    saved.title === '[verify-db] saved' && saved.description === null && saved.status === 'draft',
+  )
+  check(
+    'save_survey stores questions and choices in order',
+    saved.questions.map((q) => `${q.position}:${q.question_text}`).join() ===
+      '1:First?,2:Second?' &&
+      saved.questions[0].choices.map((c) => `${c.position}${c.choice_text}`).join() === '1A,2B,3C',
+  )
+
+  must(
+    await instructor.rpc('save_survey', {
+      p_survey_id: savedId,
+      p_title: '[verify-db] saved v2',
+      p_description: 'desc',
+      p_questions: [
+        payload[1],
+        { ...payload[0], choices: [{ choice_text: 'C' }, { choice_text: 'A' }] },
+      ],
+    }),
+    'save update',
+  )
+  saved = await loadSaved()
+  check(
+    'save_survey update replaces and reorders questions/choices',
+    saved.title === '[verify-db] saved v2' &&
+      saved.description === 'desc' &&
+      saved.questions.map((q) => q.question_text).join() === 'Second?,First?' &&
+      saved.questions[1].choices.map((c) => c.choice_text).join() === 'C,A',
+  )
+
+  const blankChoice = await instructor.rpc('save_survey', {
+    p_survey_id: savedId,
+    p_title: 'should not apply',
+    p_description: '',
+    p_questions: [
+      { question_text: 'Q', question_type: 'multiple_choice', choices: [{ choice_text: ' ' }] },
+    ],
+  })
+  saved = await loadSaved()
+  check(
+    'failed save rolls back completely',
+    blankChoice.error?.message === 'CHOICE_TEXT_REQUIRED' &&
+      saved.title === '[verify-db] saved v2' &&
+      saved.questions.length === 2,
+    blankChoice.error?.message,
+  )
+  const noTitle = await instructor.rpc('save_survey', {
+    p_survey_id: savedId,
+    p_title: '  ',
+    p_description: '',
+    p_questions: [],
+  })
+  check(
+    'save_survey requires a title',
+    noTitle.error?.message === 'TITLE_REQUIRED',
+    noTitle.error?.message,
+  )
+
+  const lockedSave = await instructor.rpc('save_survey', {
+    p_survey_id: copyId,
+    p_title: 'edit closed',
+    p_description: '',
+    p_questions: payload,
+  })
+  check(
+    'save_survey refuses non-draft surveys',
+    lockedSave.error?.message === 'SURVEY_NOT_EDITABLE',
+    lockedSave.error?.message,
+  )
+
   // --- Archive -----------------------------------------------------------
   const archived = must(
     await instructor

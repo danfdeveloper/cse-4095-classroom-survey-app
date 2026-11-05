@@ -21,6 +21,24 @@ export interface Survey {
   updated_at: string
 }
 
+export interface Choice {
+  id: string
+  choice_text: string
+  position: number
+}
+
+export interface Question {
+  id: string
+  question_text: string
+  question_type: 'multiple_choice' | 'true_false'
+  position: number
+  choices: Choice[]
+}
+
+export interface SurveyWithQuestions extends Survey {
+  questions: Question[]
+}
+
 export interface SurveyListItem extends Survey {
   response_count: number
 }
@@ -31,6 +49,10 @@ const ERROR_MESSAGES: Record<string, string> = {
   SURVEY_NOT_ACTIVE: 'That survey is not active.',
   SURVEY_HAS_NO_QUESTIONS: 'Add at least one question before activating this survey.',
   QUESTION_NEEDS_CHOICES: 'Every question needs at least two choices before activating.',
+  SURVEY_NOT_EDITABLE: 'Only draft surveys can be edited. Duplicate this survey to make changes.',
+  TITLE_REQUIRED: 'Enter a survey title.',
+  QUESTION_TEXT_REQUIRED: 'Every question needs text.',
+  CHOICE_TEXT_REQUIRED: 'Every choice needs text.',
 }
 
 /** Converts a Supabase/network error into a message safe to show the instructor. */
@@ -87,4 +109,48 @@ export async function archiveSurvey(id: string): Promise<void> {
 
 export async function deleteSurvey(id: string): Promise<void> {
   unwrap(await supabase.from('surveys').delete().eq('id', id))
+}
+
+/** Loads one survey with its questions and choices in display order, or null if not found. */
+export async function getSurvey(id: string): Promise<SurveyWithQuestions | null> {
+  const survey = unwrap(
+    await supabase
+      .from('surveys')
+      .select(
+        '*, questions(id, question_text, question_type, position, choices(id, choice_text, position))',
+      )
+      .eq('id', id)
+      .order('position', { referencedTable: 'questions' })
+      .order('position', { referencedTable: 'questions.choices' })
+      .maybeSingle(),
+  ) as SurveyWithQuestions | null
+  return survey
+}
+
+export async function getActiveSurvey(): Promise<Survey | null> {
+  return unwrap(
+    await supabase.from('surveys').select('*').eq('status', 'active').maybeSingle(),
+  ) as Survey | null
+}
+
+export interface SurveyPayload {
+  title: string
+  description: string
+  questions: {
+    question_text: string
+    question_type: 'multiple_choice' | 'true_false'
+    choices: { choice_text: string }[]
+  }[]
+}
+
+/** Creates (id = null) or replaces a Draft survey atomically. Returns the survey id. */
+export async function saveSurvey(id: string | null, payload: SurveyPayload): Promise<string> {
+  return unwrap(
+    await supabase.rpc('save_survey', {
+      p_survey_id: id,
+      p_title: payload.title,
+      p_description: payload.description,
+      p_questions: payload.questions,
+    }),
+  ) as string
 }

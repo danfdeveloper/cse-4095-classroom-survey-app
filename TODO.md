@@ -77,21 +77,21 @@ This roadmap breaks the implementation into small, testable phases ordered from 
 
 # Phase 5 — Survey Editor
 
-- [ ] Create a survey editor page.
-- [ ] Add survey title field.
-- [ ] Add optional description field.
-- [ ] Add questions dynamically.
-- [ ] Support Multiple Choice questions.
-- [ ] Support True / False questions.
-- [ ] Add answer choices dynamically.
-- [ ] Reorder questions.
-- [ ] Reorder choices.
-- [ ] Delete questions.
-- [ ] Delete choices.
-- [ ] Validate required fields.
-- [ ] Save a survey as Draft.
-- [ ] Load an existing survey for editing.
-- [ ] Allow editing only Draft surveys (Active, Closed and Archived are read-only; use Duplicate to reuse one).
+- [x] Create a survey editor page.
+- [x] Add survey title field.
+- [x] Add optional description field.
+- [x] Add questions dynamically.
+- [x] Support Multiple Choice questions.
+- [x] Support True / False questions.
+- [x] Add answer choices dynamically.
+- [x] Reorder questions.
+- [x] Reorder choices.
+- [x] Delete questions.
+- [x] Delete choices.
+- [x] Validate required fields.
+- [x] Save a survey as Draft.
+- [x] Load an existing survey for editing.
+- [x] Allow editing only Draft surveys (Active, Closed and Archived are read-only; use Duplicate to reuse one).
 
 ---
 

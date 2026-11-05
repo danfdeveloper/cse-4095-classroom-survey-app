@@ -189,6 +189,74 @@ I applied the migration in the Supabase SQL Editor.
 
 ---
 
+## Phase 5 — Survey editor
+
+**Prompt:** "Go to next phase."
+
+**Agent output:**
+
+- **Migration `20261105010000_save_survey.sql`:** a `save_survey` RPC that creates a new Draft or replaces an existing Draft's title, description, questions and choices in one transaction. Positions come from array order. Anything other than a Draft is refused (`SURVEY_NOT_EDITABLE`).
+- **`src/lib/editorModel.ts`:** pure editor logic, with no React. It holds the draft types, factories, validation, reordering, and conversion to and from the database shape.
+- **`src/components/QuestionEditor.tsx`:** one question card. It has the question text, a type selector, choices you can add, delete and reorder, and fixed True / False choices.
+- **`src/pages/SurveyEditorPage.tsx`:** used for both `/surveys/new` and `/surveys/:id/edit`. It has:
+  - the title and optional description;
+  - add, delete and reorder for questions;
+  - inline validation, Save Draft and Activate;
+  - a read-only notice for non-draft surveys, with "Duplicate to Edit";
+  - "Saved" and "Unsaved changes" indicators, and a browser warning when leaving with unsaved changes.
+
+I applied the migration in the Supabase SQL Editor.
+
+**Testing:**
+
+- `npm run verify:db` now runs 49 checks. The new ones check that:
+  - anon cannot call `save_survey`;
+  - text is trimmed and a blank description becomes null;
+  - questions and choices are stored in order, and an update replaces and reorders them;
+  - a failed save rolls back completely;
+  - a title is required, and non-draft surveys are refused.
+- A Playwright editor test at phone width (29 checks) covers:
+  - validation messages next to each field, with focus moved to the first invalid one;
+  - focus moving to newly added questions and choices;
+  - switching to True / False and back without losing typed choices;
+  - reordering questions and choices, with focus following the moved item;
+  - deleting a choice, and deleting a question with a confirmation;
+  - rejecting duplicate choices;
+  - saving and checking the database rows, and the data surviving a page refresh;
+  - Activate from the editor, which saves, activates and opens Present;
+  - the locked view for an active survey, Duplicate to Edit, and "Survey not found".
+- The dashboard and login tests still pass.
+
+**Problems:**
+
+- **While reviewing its own draft, before running anything**, the agent found two bugs:
+  - The page defined its `LoadMessage` and `LockedNotice` components inside the page component. React would recreate them on every render and reset their state.
+  - After the first save, the URL changes from `/surveys/new` to `/surveys/:id/edit`. That would have reloaded the survey from the server and caused a "Loading..." flash.
+
+  The fix was to move the components to module level and to track which survey id is already loaded.
+
+- **In the test:** one check failed because `getByText('Question 1')` also matched the hidden choice labels ("Question 1, choice 1"). The test now selects the question group by its accessible name. The app was not at fault.
+
+**Decisions:**
+
+- **Atomic save by replacement.** Each save deletes and re-inserts the draft's questions and choices inside one transaction. This is safe only because Drafts have never been active, so they have no answers that point at those rows.
+- **Validation:**
+  - A title and at least one question are required.
+  - Every question needs text.
+  - Multiple-choice questions need at least two non-empty choices, and duplicate choices (ignoring letter case) are not allowed.
+  - Errors appear only after the first Save or Activate attempt, then update as you type.
+  - Incomplete drafts cannot be saved.
+- **True / False choices are fixed** as "True" and "False" and cannot be edited. Switching a question to True / False and back restores the multiple-choice options typed earlier.
+- **New multiple-choice questions start with two empty choices.** A new survey starts with one question.
+- **Reordering uses ↑ / ↓ buttons, not drag-and-drop,** so it works with the keyboard and on touch screens.
+- **Confirmation for deletes:**
+  - Deleting a question asks for confirmation only if the question has content (UI.md: "destructive actions require confirmation").
+  - Deleting a single choice does not ask, to avoid excessive dialogs.
+- **Activate in the editor** (UI.md's bottom controls) saves first, asks for confirmation if another survey is active, then opens the Present page.
+- **Unsaved-changes warning:** only the browser's "leave site?" prompt on reload or tab close. React Router's in-app navigation blocker needs a data router, which this app does not use.
+
+---
+
 ## Decisions made ahead of later phases
 
 - **Phase 5, editing:** only **Draft** surveys can be edited. The assignment says "edit existing draft surveys". TODO.md implied that closed surveys could be edited too, but deleting a question from a closed survey would also delete stored student answers. To reuse a closed survey, duplicate it instead.
