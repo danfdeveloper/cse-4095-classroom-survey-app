@@ -154,3 +154,20 @@ export async function saveSurvey(id: string | null, payload: SurveyPayload): Pro
     }),
   ) as string
 }
+
+/** Number of responses submitted to a survey. */
+export async function countResponses(surveyId: string): Promise<number> {
+  const { count, error } = await supabase
+    .from('responses')
+    .select('*', { count: 'exact', head: true })
+    .eq('survey_id', surveyId)
+  if (error) throw error
+  return count ?? 0
+}
+
+export async function getSurveyStatus(id: string): Promise<SurveyStatus | null> {
+  const row = unwrap(
+    await supabase.from('surveys').select('status').eq('id', id).maybeSingle(),
+  ) as { status: SurveyStatus } | null
+  return row?.status ?? null
+}

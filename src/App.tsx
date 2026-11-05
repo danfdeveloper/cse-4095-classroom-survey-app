@@ -6,6 +6,7 @@ import DashboardPage from './pages/DashboardPage.tsx'
 import HomePage from './pages/HomePage.tsx'
 import LoginPage from './pages/LoginPage.tsx'
 import NotFoundPage from './pages/NotFoundPage.tsx'
+import PresentPage from './pages/PresentPage.tsx'
 import SurveyEditorPage from './pages/SurveyEditorPage.tsx'
 
 export default function App() {
@@ -18,10 +19,7 @@ export default function App() {
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/surveys/new" element={<SurveyEditorPage />} />
           <Route path="/surveys/:id/edit" element={<SurveyEditorPage />} />
-          <Route
-            path="/surveys/:id/present"
-            element={<ComingSoonPage title="Present Survey" phase={6} />}
-          />
+          <Route path="/surveys/:id/present" element={<PresentPage />} />
           <Route
             path="/surveys/:id/results"
             element={<ComingSoonPage title="Results" phase={9} />}

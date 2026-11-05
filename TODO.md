@@ -101,13 +101,13 @@ This roadmap breaks the implementation into small, testable phases ordered from 
 - [x] Ensure at most one survey is Active.
 - [x] Automatically close the previously active survey.
 - [x] Generate a public survey slug.
-- [ ] Generate the public survey URL.
-- [ ] Generate a QR code from the public URL.
-- [ ] Create a Present Survey page.
-- [ ] Display survey title and QR code.
-- [ ] Display a readable fallback URL.
-- [ ] Add a Close Survey button.
-- [ ] Add a Download QR Code button.
+- [x] Generate the public survey URL.
+- [x] Generate a QR code from the public URL.
+- [x] Create a Present Survey page.
+- [x] Display survey title and QR code.
+- [x] Display a readable fallback URL.
+- [x] Add a Close Survey button.
+- [x] Add a Download QR Code button.
 
 ---
 
@@ -194,7 +194,7 @@ This roadmap breaks the implementation into small, testable phases ordered from 
 - [ ] Add empty states.
 - [ ] Add error messages.
 - [x] Add confirmation dialogs for destructive actions.
-- [ ] Improve QR-code presentation for classroom projection.
+- [x] Improve QR-code presentation for classroom projection.
 - [ ] Test accessibility and keyboard navigation.
 - [ ] Improve color contrast.
 

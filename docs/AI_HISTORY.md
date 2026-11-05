@@ -257,6 +257,55 @@ I applied the migration in the Supabase SQL Editor.
 
 ---
 
+## Phase 6 — Survey activation and Present page
+
+**Prompt:** "Continue to next phase."
+
+The activation logic, the one-active rule, auto-closing and slug generation were already done in Phase 4. This phase added the student URL, the QR code and the Present page.
+
+**Agent output:**
+
+- **`src/lib/publicUrl.ts`:** builds `<VITE_PUBLIC_SITE_URL>/s/<slug>`, falling back to the current origin, and a display form without `https://`.
+- **`src/pages/PresentPage.tsx`:** a projector page. It shows:
+  - a large title and a QR code sized to fit the screen, rendered as SVG so it stays sharp at any size;
+  - the URL in large monospace text and the response count;
+  - View Results, Download QR Code (1024px PNG), Full Screen, Close Survey (with confirmation) and Dashboard buttons.
+
+  It has no app header or navigation bar (UI.md: "avoid unnecessary navigation elements").
+
+- **New data helpers:** `countResponses` and `getSurveyStatus`.
+
+**Testing:** A Playwright test (21 checks) at 1280×800 and at phone width checks that:
+
+- the on-screen QR code and the downloaded PNG both decode (using `jsQR`) to exactly the public URL;
+- the QR code is at least 450px wide and the whole page fits on one 1280×800 screen without scrolling;
+- the slug in the QR code resolves to the survey for an anonymous student;
+- the response count goes from 0 to 1 within about 5 seconds after a student submits;
+- after Close Survey, the QR code is hidden, the database says `closed`, and a student submission made right afterwards is rejected;
+- a survey closed from somewhere else disappears from the projector within about 5 seconds;
+- draft and unknown surveys show the right messages;
+- there is no horizontal scroll on a phone.
+
+The earlier tests (verify-db, login, dashboard and editor) all still pass.
+
+**Problems:**
+
+- None in testing. All checks passed on the first run.
+- While writing the page, the agent noticed that a survey closed from the dashboard, or from another tab, would leave a dead QR code on the projector. It added a status check to the 5-second poll.
+- **Long titles overflowed the projector view.** While testing the titled PNG with a deliberately long title, the "fits on one 1280×800 screen" check failed, because the page was 848px tall. A two-line title had pushed the buttons off-screen. The fix: on larger screens the page is exactly one screen tall, the QR code takes whatever height remains, and the title is limited to two lines (the full title appears on hover). All 21 checks then passed, and the agent viewed the generated PNG to confirm the layout.
+- `vite build` now warns that the JavaScript bundle is over 500 kB. Supabase and `qrcode` account for most of it. This is deferred to Phase 7, where load time matters most because students open the page on phones.
+
+**Decisions:**
+
+- **The response count updates by polling every 5 seconds,** and only while the tab is visible. Supabase Realtime is a Phase 16 enhancement.
+- **The QR code always uses `VITE_PUBLIC_SITE_URL` when it is set,** so codes point at the production domain even when the app is opened from a different address. It must be set correctly in Cloudflare (Phase 15).
+- **Extra buttons:** Full Screen and Dashboard were added, along with UI.md's View Results and Close Survey.
+- **Non-active surveys:** the page shows a status message and the response count instead of a QR code.
+- **The QR PNG** is named `survey-<slug>-qr.png`. At my request it was changed from a bare 1024px QR code to a 1200px-wide printable image (`src/lib/qrImage.ts`). It has the survey title at the top (wrapped to at most 3 lines, with "…" if longer), the QR code, and the readable URL underneath.
+- **Phase 13's "Improve QR-code presentation for classroom projection"** is checked off now, because this page was designed and tested for projection.
+
+---
+
 ## Decisions made ahead of later phases
 
 - **Phase 5, editing:** only **Draft** surveys can be edited. The assignment says "edit existing draft surveys". TODO.md implied that closed surveys could be edited too, but deleting a question from a closed survey would also delete stored student answers. To reuse a closed survey, duplicate it instead.
