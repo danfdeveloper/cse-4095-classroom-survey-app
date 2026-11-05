@@ -156,6 +156,33 @@ async function main() {
   const pubC = await anon.from('choices').select('id').in('question_id', [mc.id, tf.id])
   check('anon can read active survey choices', pubC.data?.length === 4)
 
+  // --- get_public_survey (RPC) -------------------------------------------
+  const pubActive = must(
+    await anon.rpc('get_public_survey', { p_slug: slug }),
+    'public survey',
+  ) as {
+    status: string
+    survey: { id: string; title: string }
+    questions: { question_text: string; choices: { choice_text: string }[] }[]
+  }
+  check(
+    'get_public_survey returns active survey with ordered questions and choices',
+    pubActive.status === 'active' &&
+      pubActive.survey.id === survey.id &&
+      pubActive.questions.map((q) => q.question_text).join() === 'MC?,TF?' &&
+      pubActive.questions[0].choices.map((c) => c.choice_text).join() === 'A,B',
+    JSON.stringify(pubActive).slice(0, 200),
+  )
+  check(
+    'get_public_survey exposes no response data',
+    !/response|anonymous_token|count/i.test(JSON.stringify(pubActive)),
+  )
+  const pubMissing = must(
+    await anon.rpc('get_public_survey', { p_slug: 'no-such-slug' }),
+    'public missing',
+  ) as { status: string }
+  check('get_public_survey reports not_found for unknown slug', pubMissing.status === 'not_found')
+
   // --- Anon submits via RPC ----------------------------------------------
   const good = [
     { question_id: mc.id, choice_id: mcA.id },
@@ -240,6 +267,15 @@ async function main() {
   check('close_survey sets status to closed', closed.status === 'closed')
   const closedView = await anon.from('surveys').select('id').eq('public_slug', slug)
   check('anon cannot read closed survey', (closedView.data ?? []).length === 0)
+  const pubClosed = must(
+    await anon.rpc('get_public_survey', { p_slug: slug }),
+    'public closed',
+  ) as Record<string, unknown>
+  check(
+    'get_public_survey reports closed without revealing content',
+    pubClosed.status === 'closed' && Object.keys(pubClosed).length === 1,
+    JSON.stringify(pubClosed),
+  )
   const closedSubmit = await submit(anon, survey.id, 'tok-6', good)
   check('submission to closed survey rejected', closedSubmit.error?.message === 'SURVEY_NOT_ACTIVE')
 

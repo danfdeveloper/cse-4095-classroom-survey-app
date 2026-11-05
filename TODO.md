@@ -113,29 +113,29 @@ This roadmap breaks the implementation into small, testable phases ordered from 
 
 # Phase 7 — Student Survey Page
 
-- [ ] Create the public route `/s/:slug`.
-- [ ] Load the requested active survey.
-- [ ] Show an error if the survey does not exist.
-- [ ] Show a message if the survey is closed.
-- [ ] Render survey title and description.
-- [ ] Render Multiple Choice questions.
-- [ ] Render True / False questions.
-- [ ] Validate required answers.
-- [ ] Add Submit button.
-- [ ] Store response and answers in Supabase.
-- [ ] Show a submission confirmation page.
-- [ ] Make the entire experience mobile friendly.
+- [x] Create the public route `/s/:slug`.
+- [x] Load the requested active survey.
+- [x] Show an error if the survey does not exist.
+- [x] Show a message if the survey is closed.
+- [x] Render survey title and description.
+- [x] Render Multiple Choice questions.
+- [x] Render True / False questions.
+- [x] Validate required answers.
+- [x] Add Submit button.
+- [x] Store response and answers in Supabase.
+- [x] Show a submission confirmation page.
+- [x] Make the entire experience mobile friendly.
 
 ---
 
 # Phase 8 — Duplicate Submission Protection
 
-- [ ] Generate an anonymous browser token.
-- [ ] Store the token in local storage.
-- [ ] Save the token with each response.
-- [ ] Prevent the same token from submitting twice to the same survey.
-- [ ] Show a friendly message if a duplicate submission is attempted.
-- [ ] Add a database uniqueness constraint if appropriate.
+- [x] Generate an anonymous browser token.
+- [x] Store the token in local storage.
+- [x] Save the token with each response.
+- [x] Prevent the same token from submitting twice to the same survey.
+- [x] Show a friendly message if a duplicate submission is attempted.
+- [x] Add a database uniqueness constraint if appropriate.
 
 ---
 

@@ -293,7 +293,7 @@ The earlier tests (verify-db, login, dashboard and editor) all still pass.
 - None in testing. All checks passed on the first run.
 - While writing the page, the agent noticed that a survey closed from the dashboard, or from another tab, would leave a dead QR code on the projector. It added a status check to the 5-second poll.
 - **Long titles overflowed the projector view.** While testing the titled PNG with a deliberately long title, the "fits on one 1280×800 screen" check failed, because the page was 848px tall. A two-line title had pushed the buttons off-screen. The fix: on larger screens the page is exactly one screen tall, the QR code takes whatever height remains, and the title is limited to two lines (the full title appears on hover). All 21 checks then passed, and the agent viewed the generated PNG to confirm the layout.
-- `vite build` now warns that the JavaScript bundle is over 500 kB. Supabase and `qrcode` account for most of it. This is deferred to Phase 7, where load time matters most because students open the page on phones.
+- `vite build` now warns that the JavaScript bundle is over 500 kB. Supabase and `qrcode` account for most of it. This was fixed in Phase 7 with code splitting.
 
 **Decisions:**
 
@@ -303,6 +303,52 @@ The earlier tests (verify-db, login, dashboard and editor) all still pass.
 - **Non-active surveys:** the page shows a status message and the response count instead of a QR code.
 - **The QR PNG** is named `survey-<slug>-qr.png`. At my request it was changed from a bare 1024px QR code to a 1200px-wide printable image (`src/lib/qrImage.ts`). It has the survey title at the top (wrapped to at most 3 lines, with "…" if longer), the QR code, and the readable URL underneath.
 - **Phase 13's "Improve QR-code presentation for classroom projection"** is checked off now, because this page was designed and tested for projection.
+
+---
+
+## Phase 7 — Student survey page (and Phase 8 — duplicate protection)
+
+**Prompt:** "Next phase now."
+
+**Agent output:**
+
+- **Migration `20261105020000_public_survey.sql`:** a `get_public_survey(p_slug)` RPC (security definer). It returns the active survey with its ordered questions and choices in one request. For a closed or archived survey it returns only `{status: "closed"}`, and for an unknown slug `{status: "not_found"}`. It never returns response data.
+- **`src/pages/StudentSurveyPage.tsx`** at `/s/:slug`. It is mobile-first, with one column and no header, menu or login. It shows:
+  - the title and description, and numbered questions, each a `<fieldset>` with its question as the legend;
+  - full-width answer cards at least 44px tall (56px in practice);
+  - an error on each unanswered question, a full-width Submit button, and "Submitting..." while it sends.
+
+  It also covers every state in UI.md §8: loading, success, already submitted, closed and not found, plus a load error with a Try Again button.
+
+- **`src/lib/anonymousToken.ts`** (Phase 8): a random 128-bit browser token kept in localStorage, plus a per-survey "submitted" flag. The token is sent with every submission, and the existing unique index rejects a second response from the same token.
+- **`src/lib/studentSurvey.ts`:** wraps the two student RPCs and turns every error into a student-friendly outcome, so students never see a raw database error.
+- **Code splitting in `App.tsx`:** pages load with `React.lazy`, so a student's phone downloads only the student page, without the instructor editor, dashboard or QR library. This removed the over-500 kB bundle warning from Phase 6.
+
+**Testing:**
+
+- `verify:db` now runs 53 checks. The new ones cover `get_public_survey`'s active, closed and not-found results, and confirm that no response data is exposed.
+- **A Playwright test on an emulated Pixel 7 phone with touch (26 checks).** It covers:
+  - **Layout:** touch-target sizes, a full-width Submit button and no horizontal scroll. It also checks that no instructor code was downloaded.
+  - **Answering:** per-question errors with focus moved to the first one, tap selection, and arrow-key selection.
+  - **Network failure:** a simulated failure shows a friendly error, and the answers stay selected.
+  - **Success:** the response is stored with the browser's token and the correct answers.
+  - **Duplicate protection:** reloading shows "already submitted". With the local flag cleared but the same token, the server rejects the duplicate, shows the friendly message and stores nothing.
+  - **Other students and states:** a second browser can submit. If the instructor closes the survey while a student is answering, the student sees "no longer accepting responses" on Submit. Closed and unknown links show the right messages, and exactly 2 responses are stored in the end.
+- **Load time:** the production build was measured on a throttled 4G connection with a 4x CPU slowdown and a cold cache. The page was usable in about 1.9 seconds, with uncompressed files (about 500 KB). Cloudflare compresses them to about 150 KB.
+- All earlier test suites still pass.
+
+**Problem:** The first test run refused to start because my own survey "1" was Active, and the tests need to activate their own temporary surveys. The tests are written to abort rather than close real data. I told the agent it could close mine, and it did. A closed survey cannot be re-activated, so asking first mattered.
+
+**Decisions:**
+
+- **`get_public_survey` RPC.** Without it, anonymous students cannot tell a closed survey from a missing one, because RLS hides non-active surveys. UI.md wants different messages for the two. It also loads everything in one request instead of three, which helps when 200 phones open the link at once.
+- **Phase 8 built together with Phase 7,** because submitting needs the token. All Phase 8 items are checked off.
+- **Two layers of duplicate protection:** a local "submitted" flag shows the message immediately, and the database's unique `(survey_id, anonymous_token)` index is the real check. Clearing site data or using another browser gets around it. The assignment asks for "reasonable protection against accidental duplicate submissions", not a security boundary.
+- **Token generation** uses `crypto.getRandomValues`, not `randomUUID`, so it also works when the page is opened over plain http on a LAN IP during phone testing. If localStorage is blocked, the token lasts only for that page load.
+- **Every question is required,** consistent with the submit RPC from Phase 2.
+- **The confirmation is shown in place on the same URL,** not as a separate route.
+- **If a submit fails, the answers stay selected** and a retry message is shown.
+- **The browser tab title** is set to the survey title.
 
 ---
 
