@@ -26,21 +26,21 @@ This roadmap breaks the implementation into small, testable phases ordered from 
 
 # Phase 2 — Supabase Project and Database
 
-- [ ] Create a Supabase project.
-- [ ] Create the `surveys` table.
-- [ ] Create the `questions` table.
-- [ ] Create the `choices` table.
-- [ ] Create the `responses` table.
-- [ ] Create the `answers` table.
-- [ ] Add foreign-key constraints.
-- [ ] Add database indexes.
-- [ ] Add timestamps.
-- [ ] Add survey-status validation.
-- [ ] Create Row Level Security policies.
-- [ ] Verify students cannot read survey results.
-- [ ] Verify anonymous students can read active surveys.
-- [ ] Verify anonymous students can submit responses.
-- [ ] Verify authenticated instructors have full access.
+- [x] Create a Supabase project.
+- [x] Create the `surveys` table.
+- [x] Create the `questions` table.
+- [x] Create the `choices` table.
+- [x] Create the `responses` table.
+- [x] Create the `answers` table.
+- [x] Add foreign-key constraints.
+- [x] Add database indexes.
+- [x] Add timestamps.
+- [x] Add survey-status validation.
+- [x] Create Row Level Security policies.
+- [x] Verify students cannot read survey results.
+- [x] Verify anonymous students can read active surveys.
+- [x] Verify anonymous students can submit responses.
+- [x] Verify authenticated instructors have full access.
 
 ---
 
@@ -91,7 +91,7 @@ This roadmap breaks the implementation into small, testable phases ordered from 
 - [ ] Validate required fields.
 - [ ] Save a survey as Draft.
 - [ ] Load an existing survey for editing.
-- [ ] Prevent editing an active survey unless it is first closed.
+- [ ] Allow editing only Draft surveys (Active, Closed and Archived are read-only; use Duplicate to reuse one).
 
 ---
 

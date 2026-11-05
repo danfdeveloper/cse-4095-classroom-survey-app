@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "verify:db": "node --env-file=.env.local scripts/verify-db.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.119.0",

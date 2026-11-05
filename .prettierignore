@@ -1,3 +1,9 @@
 dist
 node_modules
 package-lock.json
+
+# Provided specification documents — keep as handed out
+Classroom_Survey_Web_App_Specification.md
+API.md
+DATABASE.md
+UI.md
