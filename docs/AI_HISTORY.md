@@ -512,6 +512,38 @@ Most polish items were built along the way: loading, empty and error states on e
 
 ---
 
+## Phase 15 — Deployment
+
+**Prompt:** "Next phase, help me through deployment."
+
+**Agent output:**
+
+- **Deployment files:** `.nvmrc` (Node 22, so Cloudflare uses the same Node as local development) and `public/_headers`. The headers file adds `nosniff`, `X-Frame-Options: DENY`, a referrer policy and a permissions policy, and caches the fingerprinted `/assets/*` files for a year.
+- **README:** a full Setup section (the Supabase project, all 6 migrations in order, sign-ups turned off, the instructor user, environment variables) and a Deployment (Cloudflare Pages) section.
+- **`BASE_URL` mode for the end-to-end tests,** so the same suite can run against the live site.
+- **Step-by-step deployment guidance:** I created the Pages project from the GitHub repo (build `npm run build`, output `dist`, master branch) and set the three `VITE_*` variables.
+- **Live site:** https://cse-4095-classroom-survey-app.pages.dev
+
+**Verification (production):**
+
+- Every route returns the app when opened directly: `/`, `/login`, `/dashboard`, `/s/…`, `/surveys/…/results`, and unknown paths, which show the app's 404 page.
+- The security headers and asset caching are present.
+- The built JavaScript contains the right Supabase project and no instructor credentials.
+- Against the live site, in Chrome: **25 of 25 passed** for login and unauthorized access, Present (QR codes decoded and opened), student submissions and duplicate prevention, and results. One test timed out on the first run (a blank page, a network stall) and passed when re-run on its own.
+
+**Problems:**
+
+1. **I started on the wrong screen.** Cloudflare's "Create" page now defaults to **Workers**, which has a "Path" and a "Deploy command" but no output directory. I switched to **Pages** with the "Looking to deploy Pages?" link.
+2. **The QR codes pointed to the wrong domain.** `VITE_PUBLIC_SITE_URL` was set to the example name `classroom-survey.pages.dev`, but Cloudflare named the site after the project, `cse-4095-classroom-survey-app.pages.dev`. The agent caught this by searching the deployed JavaScript. The example domain belongs to someone else's live site, so every scanned QR code would have gone there. I corrected the variable and redeployed, and the check passed.
+
+**Decisions:**
+
+- **No `_redirects` file.** Cloudflare Pages serves `index.html` for unknown paths automatically when the build has no `404.html`, so routing for the single-page app works without one. A `/* /index.html 200` rule would trigger Cloudflare's redirect-loop warning.
+- **Kept the default `pages.dev` address.** A project can't be renamed, and the shorter name was taken.
+- **Grader access:** a separate Supabase user, with its credentials only in HuskyCT.
+
+---
+
 ## Decisions made ahead of later phases
 
 - **Phase 5, editing:** only **Draft** surveys can be edited. The assignment says "edit existing draft surveys". TODO.md implied that closed surveys could be edited too, but deleting a question from a closed survey would also delete stored student answers. To reuse a closed survey, duplicate it instead.

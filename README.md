@@ -4,7 +4,17 @@ Quick in-class understanding checks. Instructors activate a survey and project a
 
 Stack: React + TypeScript + Vite, Tailwind CSS, React Router, Supabase, Recharts, `qrcode`. Hosted on Cloudflare Pages.
 
+**Live site:** https://cse-4095-classroom-survey-app.pages.dev (instructor login credentials are provided separately with the submission).
+
+## Features
+
+- **Instructors** (login required): create, edit, duplicate, archive and delete surveys with multiple-choice and true/false questions; activate one survey at a time; project a full-screen QR code; view results as charts and tables; export results to CSV.
+- **Students** (no login): scan the QR code, answer on a phone, submit once. Duplicate submissions are blocked in the browser and in the database.
+- **Data protection:** Row Level Security lets the public see only the active survey. Questions lock once a survey leaves Draft, and stored responses cannot be edited.
+
 ## Setup
+
+**Prerequisites:** Node.js 22 (see `.nvmrc`) and a free Supabase account. For deployment you also need a GitHub account and a free Cloudflare account.
 
 ### 1. Supabase (database and login)
 
@@ -78,4 +88,14 @@ src/lib/          Supabase client and helpers
 supabase/         SQL migrations
 ```
 
-See `TODO.md` for the roadmap and `docs/TESTING.md` for the test plan, including manual device tests. `DATABASE.md` is the source of truth for the schema.
+## Documentation
+
+| File                                        | Contents                                                                    |
+| ------------------------------------------- | --------------------------------------------------------------------------- |
+| `Classroom_Survey_Web_App_Specification.md` | Product specification                                                       |
+| `DATABASE.md`                               | Database schema, RLS and functions (the source of truth when docs disagree) |
+| `API.md`                                    | How the frontend talks to Supabase                                          |
+| `UI.md`                                     | Pages and UI behavior                                                       |
+| `TODO.md`                                   | Development roadmap, with completed items checked                           |
+| `docs/AI_HISTORY.md`                        | AI development history: prompts, output, problems and decisions per phase   |
+| `docs/TESTING.md`                           | Automated test suite and the manual real-device checklist                   |
